@@ -8,7 +8,7 @@ import (
 var _ = a.API("tenant", func() {
 	a.Title("Tenant Service")
 	a.Description("Init/Update tenant service")
-	a.Version("1.0")
+	a.Version("2.0")
 	a.Host("openshift.io")
 	a.Scheme("http")
 	a.BasePath("/")
@@ -24,23 +24,6 @@ var _ = a.API("tenant", func() {
 		a.Headers("X-Request-Id", "Content-Type", "Authorization")
 		a.MaxAge(600)
 		a.Credentials()
-	})
-
-	a.Trait("GenericLinksTrait", func() {
-		a.Attribute("self", d.String)
-		a.Attribute("related", d.String)
-		a.Attribute("meta", a.HashOf(d.String, d.Any))
-	})
-
-	a.Trait("jsonapi-media-type", func() {
-		a.ContentType("application/vnd.api+json")
-	})
-
-	a.Trait("conditional", func() {
-		a.Headers(func() {
-			a.Header("If-Modified-Since", d.String)
-			a.Header("If-None-Match", d.String)
-		})
 	})
 
 	a.JWTSecurity("jwt", func() {

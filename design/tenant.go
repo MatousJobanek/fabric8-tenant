@@ -5,8 +5,8 @@ import (
 	a "github.com/goadesign/goa/design/apidsl"
 )
 
-var tenant = a.Type("Tenant", func() {
-	a.Description(`JSONAPI for the tenant object. See also http://jsonapi.org/format/#document-resource-object`)
+var tenants = a.Type("Tenants", func() {
+	a.Description(`JSONAPI for the tenant objects. See also http://jsonapi.org/format/#document-resource-object`)
 	a.Attribute("type", d.String, func() {
 		a.Enum("tenants")
 	})
@@ -20,17 +20,8 @@ var tenant = a.Type("Tenant", func() {
 
 var tenantAttributes = a.Type("TenantAttributes", func() {
 	a.Description(`JSONAPI store for all the "attributes" of a Tenant. See also see http://jsonapi.org/format/#document-resource-object-attributes`)
-	a.Attribute("email", d.String, "The tenant name", func() {
-		a.Example("Email for the tenant")
-	})
 	a.Attribute("created-at", d.DateTime, "When the tenant was created", func() {
 		a.Example("2016-11-29T23:18:14Z")
-	})
-	a.Attribute("profile", d.String, "User profile type", func() {
-		a.Example("Paid")
-	})
-	a.Attribute("os-username", d.String, "The tenant's OpenShift username", func() {
-		a.Example("foobar")
 	})
 	a.Attribute("namespaces", a.ArrayOf(namespaceAttributes), "The tenant namespaces", func() {
 	})
@@ -64,13 +55,16 @@ var namespaceAttributes = a.Type("NamespaceAttributes", func() {
 	a.Attribute("cluster-capacity-exhausted", d.Boolean, "Whether cluster hosting this namespace exhausted it's capacity", func() {
 	})
 	a.Attribute("type", d.String, "The tenant namespaces", func() {
-		a.Enum("user", "che", "jenkins", "stage", "test", "run")
+		a.Enum("che", "jenkins", "stage", "test", "run")
+	})
+	a.Attribute("space", d.UUID, "ID of a space tenant is created in", func() {
+		a.Example("50ccaa3d-0b5d-43d6-ac90-7236b669af05")
 	})
 })
 
 var tenantSingle = JSONSingle(
 	"tenant", "Holds a single Tenant",
-	tenant,
+	tenants,
 	nil)
 
 var tenantListMeta = a.Type("TenantListMeta", func() {
@@ -88,7 +82,7 @@ var pagingLinks = a.Type("pagingLinks", func() {
 
 var tenantList = JSONList(
 	"tenant", "Holds a list of Tenants",
-	tenant,
+	tenants,
 	pagingLinks,
 	tenantListMeta,
 )
@@ -100,6 +94,13 @@ var _ = a.Resource("tenant", func() {
 		a.Routing(
 			a.POST(""),
 		)
+		a.Params(func() {
+			a.Param("space", d.UUID, "ID of a space tenant should be created in")
+			a.Param("type", d.String, "The requested namespace of the tenant")
+			a.Param("w", d.Boolean, "If the access is in write or only view mode", func() {
+				a.Default(true)
+			})
+		})
 
 		a.Description("Initialize new tenant environment.")
 		a.Response(d.Accepted)
@@ -115,8 +116,12 @@ var _ = a.Resource("tenant", func() {
 		a.Routing(
 			a.PATCH(""),
 		)
+		a.Params(func() {
+			a.Param("space", d.UUID, "ID of a space the tenant belongs to")
+			a.Param("type", d.String, "The requested namespace of the tenant")
+		})
 
-		a.Description("Initialize new tenant environment.")
+		a.Description("Update a tenant environment.")
 		a.Response(d.Accepted)
 		a.Response(d.BadRequest, JSONAPIErrors)
 		a.Response(d.NotFound, JSONAPIErrors)
@@ -129,8 +134,12 @@ var _ = a.Resource("tenant", func() {
 		a.Routing(
 			a.GET(""),
 		)
+		a.Params(func() {
+			a.Param("space", d.UUID, "ID of a space the tenant belongs to")
+			a.Param("type", d.String, "The requested namespace of the tenant")
+		})
 
-		a.Description("Initialize new tenant environment.")
+		a.Description("Get information about a tenant environment.")
 		a.Response(d.OK, tenantSingle)
 		a.Response(d.BadRequest, JSONAPIErrors)
 		a.Response(d.NotFound, JSONAPIErrors)
@@ -143,12 +152,11 @@ var _ = a.Resource("tenant", func() {
 			a.DELETE(""),
 		)
 		a.Params(func() {
-			a.Param("remove", d.Boolean, "Remove tenant from cluster and Tenant DB. Tenant requires a new reprovision after completion to work.", func() {
-				a.Default(false)
-			})
+			a.Param("space", d.UUID, "ID of a space the tenant belongs to")
+			a.Param("type", d.String, "The requested namespace of the tenant")
 		})
 
-		a.Description("Clear tenant environment.")
+		a.Description("Remove tenant from cluster and Tenant DB.")
 		a.Response(d.NoContent)
 		a.Response(d.BadRequest, JSONAPIErrors)
 		a.Response(d.NotFound, JSONAPIErrors)
@@ -159,6 +167,8 @@ var _ = a.Resource("tenant", func() {
 
 var _ = a.Resource("tenants", func() {
 	a.BasePath("/api/tenants")
+	a.Description("Usable only for fabric8-jenkins-idler and rh-che service accounts")
+
 	a.Action("show", func() {
 		a.Security("jwt")
 		a.Routing(
@@ -199,6 +209,7 @@ var _ = a.Resource("tenants", func() {
 		a.Params(func() {
 			a.Param("master_url", d.String, "the URL of the OSO cluster where the user's project are located")
 			a.Param("namespace", d.String, "the user's namespace (ie, the name of the OSO 'base' project)")
+			a.Param("space", d.UUID, "ID of a space the tenant belongs to")
 			a.Required("master_url")
 			a.Required("namespace")
 		})

@@ -52,7 +52,7 @@ optionally including any of the following members
 
 // JSONAPIErrors is an array of JSONAPI error objects
 var JSONAPIErrors = a.MediaType("application/vnd.jsonapierrors+json", func() {
-	a.UseTrait("jsonapi-media-type")
+	a.ContentType("application/vnd.api+json")
 	a.TypeName("JSONAPIErrors")
 	a.Description(``)
 	a.Attributes(func() {
@@ -115,7 +115,7 @@ func JSONResourceObject(name string, attributes *d.UserTypeDefinition, relations
 // JSONList creates a UserTypeDefinition
 func JSONList(name, description string, data *d.UserTypeDefinition, links *d.UserTypeDefinition, meta *d.UserTypeDefinition) *d.MediaTypeDefinition {
 	return a.MediaType("application/vnd."+strings.ToLower(name)+"list+json", func() {
-		a.UseTrait("jsonapi-media-type")
+		a.ContentType("application/vnd.api+json")
 		a.TypeName(name + "List")
 		a.Description(description)
 		if links != nil {
@@ -147,7 +147,7 @@ func JSONList(name, description string, data *d.UserTypeDefinition, links *d.Use
 func JSONSingle(name, description string, data *d.UserTypeDefinition, links *d.UserTypeDefinition) *d.MediaTypeDefinition {
 	// WorkItemSingle is the media type for work items
 	return a.MediaType("application/vnd."+strings.ToLower(name)+"+json", func() {
-		a.UseTrait("jsonapi-media-type")
+		a.ContentType("application/vnd.api+json")
 		a.TypeName(name + "Single")
 		a.Description(description)
 		if links != nil {

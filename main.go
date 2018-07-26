@@ -1,47 +1,28 @@
+//go:generate goagen bootstrap -d github.com/fabric8-services/fabric8-tenant/design
+
 package main
 
 import (
-	"context"
-	"crypto/tls"
-	"flag"
-	"fmt"
-	"net/http"
-	"os"
-	"time"
-
 	"github.com/fabric8-services/fabric8-tenant/app"
-	authclient "github.com/fabric8-services/fabric8-tenant/auth/client"
-	"github.com/fabric8-services/fabric8-tenant/cluster"
-	"github.com/fabric8-services/fabric8-tenant/configuration"
-	"github.com/fabric8-services/fabric8-tenant/controller"
-	"github.com/fabric8-services/fabric8-tenant/jsonapi"
-	"github.com/fabric8-services/fabric8-tenant/keycloak"
-	"github.com/fabric8-services/fabric8-tenant/migration"
-	"github.com/fabric8-services/fabric8-tenant/openshift"
-	"github.com/fabric8-services/fabric8-tenant/tenant"
-	"github.com/fabric8-services/fabric8-tenant/toggles"
-	"github.com/fabric8-services/fabric8-tenant/token"
-	"github.com/fabric8-services/fabric8-tenant/user"
-	witmiddleware "github.com/fabric8-services/fabric8-wit/goamiddleware"
-	"github.com/fabric8-services/fabric8-wit/log"
 	"github.com/goadesign/goa"
-	goalogrus "github.com/goadesign/goa/logging/logrus"
 	"github.com/goadesign/goa/middleware"
-	"github.com/goadesign/goa/middleware/gzip"
+	"github.com/fabric8-services/fabric8-tenant/controller"
 	goajwt "github.com/goadesign/goa/middleware/security/jwt"
-	"github.com/jinzhu/gorm"
-	_ "github.com/lib/pq"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"github.com/fabric8-services/fabric8-tenant/log"
+	"github.com/fabric8-services/fabric8-tenant/configuration"
+	witmiddleware "github.com/fabric8-services/fabric8-wit/goamiddleware"
+	"flag"
 	"github.com/spf13/viper"
+	"github.com/fabric8-services/fabric8-tenant/jsonapi"
 )
 
 func main() {
 
 	viper.GetStringMapString("TEST")
 
-	var migrateDB bool
-	flag.BoolVar(&migrateDB, "migrateDatabase", false, "Migrates the database to the newest version and exits.")
+	//var migrateDB bool
+	//flag.BoolVar(&migrateDB, "migrateDatabase", false, "Migrates the database to the newest version and exits.")
 	flag.Parse()
 
 	// Initialized configuration
@@ -52,203 +33,59 @@ func main() {
 		}, "failed to setup the configuration")
 	}
 
-	// Initialized developer mode flag for the logger
-	log.InitializeLogger(config.IsLogJSON(), config.GetLogLevel())
-
-	db := connect(config)
-	defer db.Close()
-	migrate(db)
-
-	// Nothing to here except exit, since the migration is already performed.
-	if migrateDB {
-		os.Exit(0)
-	}
-
-	if config.GetOpenshiftCheVersion() != "" {
-		log.Logger().Infof("Che Version: %s", config.GetOpenshiftCheVersion())
-	}
-	if config.GetOpenshiftJenkinsVersion() != "" {
-		log.Logger().Infof("Jenkins Version: %s", config.GetOpenshiftJenkinsVersion())
-	}
-	if config.GetOpenshiftTeamVersion() != "" {
-		log.Logger().Infof("Team Version: %s", config.GetOpenshiftTeamVersion())
-	}
-	if config.GetOpenshiftTemplateDir() != "" {
-		log.Logger().Infof("Template Dir: %s", config.GetOpenshiftTemplateDir())
-	}
-
-	toggles.Init("f8tenant", config.GetTogglesURL())
-
-	keycloakConfig := keycloak.Config{
-		BaseURL: config.GetKeycloakURL(),
-		Realm:   config.GetKeycloakRealm(),
-		Broker:  config.GetKeycloakOpenshiftBroker(),
-	}
-
-	templateVars, err := config.GetTemplateValues()
-	if err != nil {
-		panic(err)
-	}
-
-	templateVars["KEYCLOAK_URL"] = ""
-	templateVars["KEYCLOAK_OSO_ENDPOINT"] = keycloakConfig.CustomBrokerTokenURL("openshift-v3")
-	templateVars["KEYCLOAK_GITHUB_ENDPOINT"] = fmt.Sprintf("%s%s?for=https://github.com", config.GetAuthURL(), authclient.RetrieveTokenPath())
-
-	publicKeys, err := token.GetPublicKeys(context.Background(), config.GetAuthURL())
-	if err != nil {
-		log.Panic(nil, map[string]interface{}{
-			"err":    err,
-			"target": config.GetAuthURL(),
-		}, "failed to fetch public keys from token service")
-	}
+	log := configureLogger(config)
 
 	// Create service
 	service := goa.New("tenant")
 
 	// Mount middleware
-	service.WithLogger(goalogrus.New(log.Logger()))
 	service.Use(middleware.RequestID())
-	service.Use(gzip.Middleware(9))
+	service.Use(middleware.LogRequest(true))
 	service.Use(jsonapi.ErrorHandler(service, true))
 	service.Use(middleware.Recover())
 
-	service.Use(witmiddleware.TokenContext(publicKeys, nil, app.NewJWTSecurity()))
-	service.Use(log.LogRequest(config.IsDeveloperModeEnabled()))
-	app.UseJWTMiddleware(service, goajwt.New(publicKeys, nil, app.NewJWTSecurity()))
-
-	// fetch service account token for tenant service
-	saTokenService := token.NewServiceAccountTokenService(config)
-	saToken, err := saTokenService.GetOAuthToken(context.Background())
-	if err != nil {
-		log.Panic(nil, map[string]interface{}{
-			"err": err,
-		}, "failed to fetch service account token")
-	}
-
-	resolveToken := token.NewResolve(config.GetAuthURL())
-	clusterService, err := cluster.NewService(
-		config.GetAuthURL(),
-		config.GetClustersRefreshDelay(),
-		*saToken,
-		resolveToken,
-		token.NewGPGDecypter(config.GetTokenKey()),
-	)
-	if err != nil {
-		log.Panic(nil, map[string]interface{}{
-			"err": err,
-		}, "failed to initialize the cluster.Service component")
-	}
-	defer clusterService.Stop()
-
-	resolveCluster := cluster.NewResolve(clusterService)
-	resolveTenant := func(ctx context.Context, target, userToken string) (user, accessToken string, err error) {
-		return resolveToken(ctx, target, userToken, false, token.PlainText) // no need to use "forcePull=true" to validate the user's token on the target.
-	}
-
-	openshiftService := openshift.NewService()
-
-	// create user profile client to get the user's cluster
-	userService := user.NewService(config.GetAuthURL(), *saToken)
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: config.APIServerInsecureSkipTLSVerify(),
-		},
-	}
-
-	osTemplate := openshift.Config{
-		ConsoleURL:     config.GetConsoleURL(),
-		HTTPTransport:  tr,
-		CheVersion:     config.GetOpenshiftCheVersion(),
-		JenkinsVersion: config.GetOpenshiftJenkinsVersion(),
-		TeamVersion:    config.GetOpenshiftTeamVersion(),
-		TemplateDir:    config.GetOpenshiftTemplateDir(),
-	}
-
-	tenantService := tenant.NewDBService(db)
+	service.Use(witmiddleware.TokenContext([]string{"secret"}, nil, app.NewJWTSecurity()))
+	app.UseJWTMiddleware(service, goajwt.New([]string{"secret"}, nil, app.NewJWTSecurity()))
 
 	// Mount "status" controller
-	statusCtrl := controller.NewStatusController(service, db)
-	app.MountStatusController(service, statusCtrl)
+	c := controller.NewStatusController(service)
+	app.MountStatusController(service, c)
 
-	// Mount "tenant" controller
-	tenantCtrl := controller.NewTenantController(service, tenantService, userService, resolveTenant, resolveCluster, osTemplate, templateVars)
-	app.MountTenantController(service, tenantCtrl)
-
-	tenantsCtrl := controller.NewTenantsController(service, tenantService, userService, openshiftService, resolveTenant, resolveCluster, osTemplate)
-	app.MountTenantsController(service, tenantsCtrl)
-
-	log.Logger().Infoln("Git Commit SHA: ", controller.Commit)
-	log.Logger().Infoln("UTC Build Time: ", controller.BuildTime)
-	log.Logger().Infoln("UTC Start Time: ", controller.StartTime)
-	log.Logger().Infoln("Dev mode:       ", config.IsDeveloperModeEnabled())
-	log.Logger().Infoln("Auth URL:       ", config.GetAuthURL())
-
-	http.Handle("/favicon.ico", http.NotFoundHandler())
-	http.Handle("/", service.Mux)
-
-	// Start/mount metrics http
-	if config.GetHTTPAddress() == config.GetMetricsHTTPAddress() {
-		http.Handle("/metrics", prometheus.Handler())
-	} else {
-		go func(metricAddress string) {
-			mx := http.NewServeMux()
-			mx.Handle("/metrics", prometheus.Handler())
-			if err := http.ListenAndServe(metricAddress, mx); err != nil {
-				log.Error(nil, map[string]interface{}{
-					"addr": metricAddress,
-					"err":  err,
-				}, "unable to connect to metrics server")
-				service.LogError("startup", "err", err)
-			}
-		}(config.GetMetricsHTTPAddress())
+	cluster := controller.Cluster{
+		APIURL:"https://192.168.42.241:8443",
+		Token:"3PhkSX3hqmHyk1XXuFjL5-xzvV9iG1-BiPAvij7jxwg",
 	}
 
-	// Start http
-	if err := http.ListenAndServe(config.GetHTTPAddress(), nil); err != nil {
-		log.Error(nil, map[string]interface{}{
-			"addr": config.GetHTTPAddress(),
-			"err":  err,
-		}, "unable to connect to server")
+	// Mount "tenant" controller
+	tenant := controller.NewTenantController(service, cluster, log, config)
+	app.MountTenantController(service, tenant)
+	// Mount "tenants" controller
+	tenants := controller.NewTenantsController(service)
+	app.MountTenantsController(service, tenants)
+
+	// Start service
+	if err := service.ListenAndServe(":8080"); err != nil {
 		service.LogError("startup", "err", err)
 	}
 }
 
-func connect(config *configuration.Data) *gorm.DB {
-	var err error
-	var db *gorm.DB
-	for {
-		db, err = gorm.Open("postgres", config.GetPostgresConfigString())
-		if err != nil {
-			log.Logger().Errorf("ERROR: Unable to open connection to database %v", err)
-			log.Logger().Infof("Retrying to connect in %v...", config.GetPostgresConnectionRetrySleep())
-			time.Sleep(config.GetPostgresConnectionRetrySleep())
-		} else {
-			break
-		}
-	}
+func configureLogger(config *configuration.Data) *logrus.Entry {
+	logger := log.ConfigureLogrus()
 
-	if config.IsDeveloperModeEnabled() {
-		db = db.Debug()
-	}
+	//rawSecret, err := ioutil.ReadFile(secretFilename)
+	//if err != nil {
+	//	logger.WithError(err).Errorf("unable to load sentry dsn from %q. No sentry integration enabled", *sentryDsnSecretFile)
+	//} else {
+	//	version, found := os.LookupEnv("VERSION")
+	//	if !found {
+	//		version = "UNKNOWN"
+	//	}
+	//	log.AddSentryHook(logger, log.NewSentryConfiguration(string(bytes.TrimSpace(rawSecret)), map[string]string{
+	//		"plugin":      pluginName,
+	//		"environment": *environment,
+	//		"version":     version,
+	//	}, *sentryTimeout))
+	//}
 
-	if config.GetPostgresConnectionMaxIdle() > 0 {
-		log.Logger().Infof("Configured connection pool max idle %v", config.GetPostgresConnectionMaxIdle())
-		db.DB().SetMaxIdleConns(config.GetPostgresConnectionMaxIdle())
-	}
-	if config.GetPostgresConnectionMaxOpen() > 0 {
-		log.Logger().Infof("Configured connection pool max open %v", config.GetPostgresConnectionMaxOpen())
-		db.DB().SetMaxOpenConns(config.GetPostgresConnectionMaxOpen())
-	}
-	return db
-}
-
-func migrate(db *gorm.DB) {
-	// Migrate the schema
-	err := migration.Migrate(db.DB())
-	if err != nil {
-		log.Panic(nil, map[string]interface{}{
-			"err": err,
-		}, "failed migration")
-	}
+	return logger
 }

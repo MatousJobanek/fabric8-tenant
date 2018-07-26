@@ -90,3 +90,21 @@ func (l listener) OnRegistered(payload unleash.ClientData) {
 		"payload": payload,
 	}, "toggles registered")
 }
+
+
+//cheType := "che"
+//if toggles.IsEnabled(ctx, "deploy.che-multi-tenant", false) {
+//token := goajwt.ContextJWT(ctx)
+//if token != nil {
+//vars["OSIO_TOKEN"] = token.Raw
+//id := token.Claims.(jwt.MapClaims)["sub"]
+//if id == nil {
+//return nil, errors.New("Missing sub in JWT token")
+//}
+//vars["IDENTITY_ID"] = id.(string)
+//}
+//vars["REQUEST_ID"] = log.ExtractRequestID(ctx)
+//unixNano := time.Now().UnixNano()
+//vars["JOB_ID"] = strconv.FormatInt(unixNano/1000000, 10)
+//cheType = "che-mt"
+//}

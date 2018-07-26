@@ -11,6 +11,8 @@ import (
 	"encoding/base64"
 
 	"github.com/spf13/viper"
+	"net/http"
+	"crypto/tls"
 )
 
 const (
@@ -42,11 +44,11 @@ const (
 	varOpenshiftTemplateDir            = "openshift.template.dir"
 	varOpenshiftUseCurrentCluster      = "openshift.use.current.cluster"
 	varTemplateJenkinsRootURL          = "template.jenkins.root.url"
-	varTemplateRecommenderExternalName = "template.recommender.external.name"
-	varTemplateRecommenderAPIToken     = "template.recommender.api.token"
-	varTemplateDomain                  = "template.domain"
+	VarTemplateRecommenderExternalName = "template.recommender.external.name"
+	VarTemplateRecommenderAPIToken     = "template.recommender.api.token"
+	VarTemplateDomain                  = "template.domain"
 	varTemplateCheMultiTenantServer    = "template.che.multitenant.server"
-	varAPIServerInsecureSkipTLSVerify  = "api.server.insecure.skip.tls.verify"
+	VarAPIServerInsecureSkipTLSVerify  = "api.server.insecure.skip.tls.verify"
 	varLogLevel                        = "log.level"
 	varLogJSON                         = "log.json"
 
@@ -125,7 +127,7 @@ func (c *Data) setConfigDefaults() {
 	//-----
 	c.v.SetDefault(varKeycloakOpenshiftBroker, defaultKeycloakOpenshiftBroker)
 	c.v.SetDefault(varOpenshiftUseCurrentCluster, false)
-	c.v.SetDefault(varAPIServerInsecureSkipTLSVerify, false)
+	c.v.SetDefault(VarAPIServerInsecureSkipTLSVerify, false)
 	c.v.SetDefault(varAuthURL, defaultAuthURL)
 	c.v.SetDefault(varClustersRefreshDelay, defaultClustersRefreshDelay)
 	c.v.SetDefault(varKeycloakClientID, defaultKeycloakClientID)
@@ -207,6 +209,14 @@ func (c *Data) GetPostgresConfigString() string {
 		c.GetPostgresSSLMode(),
 		c.GetPostgresConnectionTimeout(),
 	)
+}
+
+func (c *Data) GetHTTPTransport() *http.Transport{
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: c.APIServerInsecureSkipTLSVerify(),
+		},
+	}
 }
 
 // GetHTTPAddress returns the HTTP address (as set via default, config file, or environment variable)
@@ -333,7 +343,7 @@ func (c *Data) UseOpenshiftCurrentCluster() bool {
 
 // APIServerInsecureSkipTLSVerify returns if the server's certificate should be checked for validity. This will make your HTTPS connections insecure.
 func (c *Data) APIServerInsecureSkipTLSVerify() bool {
-	return c.v.GetBool(varAPIServerInsecureSkipTLSVerify)
+	return c.v.GetBool(VarAPIServerInsecureSkipTLSVerify)
 }
 
 // GetLogLevel returns the loggging level (as set via config file or environment variable)
@@ -352,22 +362,26 @@ func (c *Data) IsLogJSON() bool {
 	return true
 }
 
+func (c *Data) Set(key string, value interface{}) {
+	c.v.Set(key, value)
+}
+
 // GetTemplateValues return a Map of additional variables used to process the templates
 func (c *Data) GetTemplateValues() (map[string]string, error) {
-	if !c.v.IsSet(varTemplateRecommenderExternalName) {
-		return nil, fmt.Errorf("Missing required configuration %v", varTemplateRecommenderExternalName)
+	if !c.v.IsSet(VarTemplateRecommenderAPIToken) {
+		return nil, fmt.Errorf("Missing required configuration %v", VarTemplateRecommenderExternalName)
 	}
-	if !c.v.IsSet(varTemplateRecommenderAPIToken) {
-		return nil, fmt.Errorf("Missing required configuration %v", varTemplateRecommenderAPIToken)
+	if !c.v.IsSet(VarTemplateRecommenderAPIToken) {
+		return nil, fmt.Errorf("Missing required configuration %v", VarTemplateRecommenderAPIToken)
 	}
-	if !c.v.IsSet(varTemplateDomain) {
-		return nil, fmt.Errorf("Missing required configuration %v", varTemplateDomain)
+	if !c.v.IsSet(VarTemplateDomain) {
+		return nil, fmt.Errorf("Missing required configuration %v", VarTemplateDomain)
 	}
 
 	return map[string]string{
-		"RECOMMENDER_EXTERNAL_NAME": c.v.GetString(varTemplateRecommenderExternalName),
-		"RECOMMENDER_API_TOKEN":     base64.StdEncoding.EncodeToString([]byte(c.v.GetString(varTemplateRecommenderAPIToken))),
-		"DOMAIN":                    c.v.GetString(varTemplateDomain),
+		"RECOMMENDER_EXTERNAL_NAME": c.v.GetString(VarTemplateRecommenderExternalName),
+		"RECOMMENDER_API_TOKEN":     base64.StdEncoding.EncodeToString([]byte(c.v.GetString(VarTemplateRecommenderAPIToken))),
+		"DOMAIN":                    c.v.GetString(VarTemplateDomain),
 		"CHE_KEYCLOAK_AUTH__SERVER__URL": c.GetKeycloakURL() + "/auth",
 		"CHE_KEYCLOAK_REALM":             c.GetKeycloakRealm(),
 		"CHE_KEYCLOAK_CLIENT__ID":        c.GetKeycloakClientID(),
@@ -380,24 +394,46 @@ func (c *Data) GetTemplateValues() (map[string]string, error) {
 	}, nil
 }
 
+//const (
+//	// Auth-related defaults
+//
+//	defaultKeycloakURL             = "https://sso.prod-preview.openshift.io"
+//	defaultKeycloakRealm           = "fabric8"
+//	defaultKeycloakClientID        = "openshiftio-public"
+//	defaultKeycloakOpenshiftBroker = "openshift-v3"
+//
+//	// Keycloak vars to be used in dev mode. Can be overridden by setting up keycloak.url & keycloak.realm
+//	devModeKeycloakURL   = "https://sso.prod-preview.openshift.io"
+//	devModeKeycloakRealm = "fabric8-test"
+//
+//	defaultAuthURL              = "https://auth.prod-preview.openshift.io"
+//	defaultClustersRefreshDelay = 60 // 1 hour
+//	defaultCheMultiTenantServer = "https://che.prod-preview.openshift.io"
+//
+//	defaultLogLevel = "info"
+//
+//	defaultWitURL     = "https://api.prod-preview.openshift.io/api/"
+//	defaultTogglesURL = "http://f8toggles/api"
+//)
+
 const (
 	// Auth-related defaults
 
-	defaultKeycloakURL             = "https://sso.prod-preview.openshift.io"
+	defaultKeycloakURL             = "https://sso.openshift.io"
 	defaultKeycloakRealm           = "fabric8"
 	defaultKeycloakClientID        = "openshiftio-public"
 	defaultKeycloakOpenshiftBroker = "openshift-v3"
 
 	// Keycloak vars to be used in dev mode. Can be overridden by setting up keycloak.url & keycloak.realm
-	devModeKeycloakURL   = "https://sso.prod-preview.openshift.io"
+	devModeKeycloakURL   = "https://sso.openshift.io"
 	devModeKeycloakRealm = "fabric8-test"
 
-	defaultAuthURL              = "https://auth.prod-preview.openshift.io"
+	defaultAuthURL              = "https://auth.openshift.io"
 	defaultClustersRefreshDelay = 60 // 1 hour
-	defaultCheMultiTenantServer = "https://che.prod-preview.openshift.io"
+	defaultCheMultiTenantServer = "https://che.openshift.io"
 
 	defaultLogLevel = "info"
 
-	defaultWitURL     = "https://api.prod-preview.openshift.io/api/"
+	defaultWitURL     = "https://api.openshift.io/api/"
 	defaultTogglesURL = "http://f8toggles/api"
 )

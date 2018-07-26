@@ -1,11 +1,9 @@
 package controller
 
 import (
-	"time"
-
 	"github.com/fabric8-services/fabric8-tenant/app"
 	"github.com/goadesign/goa"
-	"github.com/jinzhu/gorm"
+	"time"
 )
 
 var (
@@ -20,30 +18,20 @@ var (
 // StatusController implements the status resource.
 type StatusController struct {
 	*goa.Controller
-	db *gorm.DB
 }
 
 // NewStatusController creates a status controller.
-func NewStatusController(service *goa.Service, db *gorm.DB) *StatusController {
-	return &StatusController{
-		Controller: service.NewController("StatusController"),
-		db:         db,
-	}
+func NewStatusController(service *goa.Service) *StatusController {
+	return &StatusController{Controller: service.NewController("StatusController")}
 }
 
 // Show runs the show action.
 func (c *StatusController) Show(ctx *app.ShowStatusContext) error {
-	res := &app.Status{}
-	res.Commit = Commit
-	res.BuildTime = BuildTime
-	res.StartTime = StartTime
-
-	_, err := c.db.DB().Exec("select 1")
-	if err != nil {
-		var message string
-		message = err.Error()
-		res.Error = &message
-		return ctx.ServiceUnavailable(res)
+	res := &app.Status{
+		Commit:    Commit,
+		BuildTime: BuildTime,
+		StartTime: StartTime,
 	}
+
 	return ctx.OK(res)
 }
