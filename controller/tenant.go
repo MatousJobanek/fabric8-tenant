@@ -44,7 +44,7 @@ func (c *TenantController) Clean(ctx *app.CleanTenantContext) error {
 		return err
 	}
 
-	err = openshift.NewClient(c.log, c.cluster.APIURL, c.cluster.Token, c.config).ApplyAll(objects).WithDeleteMethod()
+	err = openshift.NewClient(c.log, c.cluster, c.config).ApplyAll(objects).WithDeleteMethod()
 
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
@@ -55,17 +55,13 @@ func (c *TenantController) Clean(ctx *app.CleanTenantContext) error {
 
 // Setup runs the setup action.
 func (c *TenantController) Setup(ctx *app.SetupTenantContext) error {
-	userToken := goajwt.ContextJWT(ctx)
-	if userToken == nil {
-		return jsonapi.JSONErrorResponse(ctx, errors.NewUnauthorizedError("Missing JWT token"))
-	}
 
 	objects, err := template.RetrieveTemplatesObjects(ctx.Type, "mjobanek", c.config)
 	if err != nil {
 		return err
 	}
 
-	err = openshift.NewClient(c.log, c.cluster.APIURL, c.cluster.Token, c.config).ApplyAll(objects).WithPostMethod()
+	err = openshift.NewClient(c.log, c.cluster, c.config).ApplyAll(objects).WithPostMethod()
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
@@ -96,7 +92,7 @@ func (c *TenantController) Update(ctx *app.UpdateTenantContext) error {
 		return err
 	}
 
-	err = openshift.NewClient(c.log, c.cluster.APIURL, c.cluster.Token, c.config).ApplyAll(objects).WithPatchMethod()
+	err = openshift.NewClient(c.log, c.cluster, c.config).ApplyAll(objects).WithPatchMethod()
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}

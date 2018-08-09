@@ -11,10 +11,6 @@ type ObjectEndpoints struct {
 
 var (
 	objectEndpoints = map[string]*ObjectEndpoints{
-		template.ValKindTemplate: endpoints(
-			endpoint(`/apis/template.openshift.io/v1/namespaces/{{ index . "metadata" "namespace"}}/templates`, POST(IgnoreConflicts)),
-			endpoint(`/apis/template.openshift.io/v1/namespaces/{{ index . "metadata" "namespace"}}/templates/{{ index . "metadata" "name"}}`, PUT(), PATCH(), GET(), DELETE())),
-
 		template.ValKindNamespace: endpoints(
 			endpoint(`/api/v1/namespaces`, POST(IgnoreConflicts)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "name"}}`, PUT(), PATCH(), GET(), DELETE())),

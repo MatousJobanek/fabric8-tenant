@@ -11,7 +11,7 @@ var templates = map[string][]utils.DownloadFileFunction{
 	"stage": templateLocations(""),
 	"che": templateLocations(
 		"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che-mt/2.0.85/fabric8-tenant-che-mt-2.0.85-openshift.yml",
-		//"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che-quotas-oso/2.0.85/fabric8-tenant-che-quotas-oso-2.0.85-openshift.yml",
+		"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che-quotas-oso/2.0.85/fabric8-tenant-che-quotas-oso-2.0.85-openshift.yml",
 		//"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-team/2.0.11/fabric8-tenant-team-2.0.11-openshift.yml"
 	),
 	"jenkins": templateLocations("http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-jenkins/4.0.93/fabric8-tenant-jenkins-4.0.93-openshift.yml",
