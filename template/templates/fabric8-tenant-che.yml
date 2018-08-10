@@ -390,7 +390,7 @@ objects:
               configMapKeyRef:
                 key: che-wsagent-ping-success-threshold
                 name: che
-          image: registry.devshift.net/che/che:940f9ac-fabric8-e55beed
+          image: registry.devshift.net/che/che:${CHE_SERVER_VERSION}
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -443,6 +443,8 @@ objects:
       kind: Service
       name: che-host
 parameters:
+- name: CHE_SERVER_VERSION
+  value: 940f9ac-fabric8-e55beed
 - name: PROJECT_USER
   value: developer
 - name: RECOMMENDER_EXTERNAL_NAME
