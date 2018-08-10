@@ -40,7 +40,7 @@ const (
 	varConsoleURL                      = "console.url"
 	varOpenshiftCheVersion             = "openshift.che.version"
 	varOpenshiftJenkinsVersion         = "openshift.jenkins.version"
-	varOpenshiftTeamVersion            = "openshift.team.version"
+	varFabric8TenantServiceRepoSha     = "fabric8.tenant.service.repo.sha"
 	varOpenshiftTemplateDir            = "openshift.template.dir"
 	varOpenshiftUseCurrentCluster      = "openshift.use.current.cluster"
 	varTemplateJenkinsRootURL          = "template.jenkins.root.url"
@@ -317,18 +317,8 @@ func (c *Data) GetTogglesURL() string {
 }
 
 // GetOpenshiftTeamVersion returns the team version of YAML files used to provision tenant team namespaces and roles
-func (c *Data) GetOpenshiftTeamVersion() string {
-	return c.v.GetString(varOpenshiftTeamVersion)
-}
-
-// GetOpenshiftCheVersion returns the team version of YAML files used to provision tenant che
-func (c *Data) GetOpenshiftCheVersion() string {
-	return c.v.GetString(varOpenshiftCheVersion)
-}
-
-// GetOpenshiftJenkinsVersion returns the team version of YAML files used to provision tenant jenkins
-func (c *Data) GetOpenshiftJenkinsVersion() string {
-	return c.v.GetString(varOpenshiftJenkinsVersion)
+func (c *Data) GetFabric8TenantServiceRepoSha() string {
+	return c.v.GetString(varFabric8TenantServiceRepoSha)
 }
 
 // GetOpenshiftTemplateDir returns the directory containing the local team YAML files
