@@ -9,6 +9,18 @@ metadata:
   name: fabric8-tenant-user
 objects:
 - apiVersion: v1
+  kind: ProjectRequest
+  metadata:
+    annotations:
+      openshift.io/description: ${PROJECT_NAME}
+      openshift.io/display-name: ${PROJECT_NAME}
+      openshift.io/requester: ${PROJECT_REQUESTING_USER}
+    labels:
+      provider: fabric8
+      project: fabric8-online-user
+      version: ${COMMIT}
+    name: ${PROJECT_NAME}
+- apiVersion: v1
   kind: Service
   metadata:
     annotations:
@@ -142,8 +154,6 @@ parameters:
   value: developer
 - name: PROJECT_REQUESTING_USER
   value: system:admin
-- name: PROJECT_DISPLAYNAME
-- name: PROJECT_DESCRIPTION
 - name: EXTERNAL_DOCKER_REGISTRY_URL
 - name: FABRIC8_CONSOLE_URL
 - name: KEYCLOAK_URL

@@ -4,53 +4,71 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	"fmt"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
-	"github.com/fabric8-services/fabric8-notification/template"
+	"github.com/fabric8-services/fabric8-tenant/template/generated"
 )
 
-//var templates = map[string][]utils.DownloadFileFunction{
-//	"run":   templateLocations(""),
-//	"stage": templateLocations(""),
-//	"che": templateLocations(
-//		"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che-mt/2.0.85/fabric8-tenant-che-mt-2.0.85-openshift.yml",
-//		"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che-quotas-oso/2.0.85/fabric8-tenant-che-quotas-oso-2.0.85-openshift.yml",
-//		//"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-team/2.0.11/fabric8-tenant-team-2.0.11-openshift.yml"
-//	),
-//	"jenkins": templateLocations("http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-jenkins/4.0.93/fabric8-tenant-jenkins-4.0.93-openshift.yml",
-//		"http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-jenkins-quotas-oso/4.0.93/fabric8-tenant-jenkins-quotas-oso-4.0.93-openshift.yml"),
-//}
+//go:generate go-bindata -prefix "./assets/" -pkg assets  -o ./generated/templates.go ./assets/...
 
 const (
 	rawFileFabric8TenantServiceURL = "https://github.com/fabric8-services/fabric8-tenant/blob/%s/%s"
-	templatesDirectory             = "template/templates/"
+	templatesDirectory             = "template/assets/"
 )
 
-var templateNames = map[string]string{
-	"run":     "",
-	"stage":   "",
-	"che":     "fabric8-tenant-che-openshift.yml",
-	"che-mt":  "fabric8-tenant-che-mt-openshift.yml",
-	"jenkins": "fabric8-tenant-jenkins-openshift.yml",
+type template struct {
+	filename      string
+	defaultParams map[string]string
+}
+
+var (
+	stageParams = map[string]string{"ENV_TYPE": "stage"}
+	runParams   = map[string]string{"ENV_TYPE": "run"}
+	noParams    map[string]string
+)
+
+func newTemplate(filename string, defaultParams map[string]string) template {
+	return template{
+		filename:      filename,
+		defaultParams: defaultParams,
+	}
+}
+
+var templateNames = map[string]template{
+	"run":     newTemplate("fabric8-tenant-environment.yml", runParams),
+	"stage":   newTemplate("fabric8-tenant-environment.yml", stageParams),
+	"che":     newTemplate("fabric8-tenant-che.yml", noParams),
+	"che-mt":  newTemplate("fabric8-tenant-che-mt.yml", noParams),
+	"jenkins": newTemplate("fabric8-tenant-jenkins.yml", noParams),
 }
 
 func RetrieveTemplatesObjects(namespace *string, username string, config *configuration.Data) (Objects, error) {
-	tmpls := make([]string, 0)
+	templates := make([]string, 0)
+
 	if utils.IsEmpty(namespace) {
-		for _, tmplName := range templateNames {
-			retrieveTemplate(&tmpls, tmplName, config)
+		for _, template := range templateNames {
+			content, err := retrieveTemplate(template, config)
+			if err != nil {
+				return nil, err
+			}
+			templates = append(templates, content)
 		}
+
 	} else {
-		retrieveTemplate(&tmpls, templateNames[*namespace], config)
+		content, err := retrieveTemplate(templateNames[*namespace], config)
+		if err != nil {
+			return nil, err
+		}
+		templates = append(templates, content)
 	}
 
-	objects, err := ProcessTemplates(username, config, tmpls...)
+	objects, err := ProcessTemplates(username, config, templates...)
 	if err != nil {
 		return objects, err
 	}
 	return objects, nil
 }
 
-func retrieveTemplate(templates *[]string, tmplName string, config *configuration.Data) error {
-	pathToTemplate := templatesDirectory + tmplName
+func retrieveTemplate(template template, config *configuration.Data) (string, error) {
+	pathToTemplate := templatesDirectory + template.filename
 	var (
 		content []byte
 		err     error
@@ -58,11 +76,10 @@ func retrieveTemplate(templates *[]string, tmplName string, config *configuratio
 	if config.GetFabric8TenantServiceRepoSha() != "" {
 		content, err = utils.DownloadFile(fmt.Sprintf(rawFileFabric8TenantServiceURL, config.GetFabric8TenantServiceRepoSha(), pathToTemplate))
 	} else {
-		content, err = template.Asset(pathToTemplate)
+		content, err = assets.Asset(pathToTemplate)
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
-	*templates = append(*templates, string(content))
-
+	return string(content), nil
 }

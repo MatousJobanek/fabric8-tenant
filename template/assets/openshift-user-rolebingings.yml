@@ -1,0 +1,69 @@
+---
+apiVersion: v1
+kind: Template
+metadata:
+  labels:
+    app: fabric8-tenant
+    provider: fabric8
+    version: ${COMMIT}
+objects:
+- apiVersion: v1
+  kind: RoleBindingRestriction
+  metadata:
+    labels:
+        app: fabric8-tenant
+        provider: fabric8
+        version: ${COMMIT}
+    name: dsaas-access-users
+  spec: 
+    userrestriction:
+      users: 
+      - ${PROJECT_ADMIN_USER}
+      - system:serviceaccount:${PROJECT_NAME}-jenkins:jenkins
+- apiVersion: v1
+  kind: RoleBindingRestriction
+  metadata:
+    labels:
+        app: fabric8-tenant
+        provider: fabric8
+        version: ${COMMIT}
+    name: dsaas-access-groups
+  spec: 
+    grouprestriction:
+      groups: 
+      - system:serviceaccounts:${PROJECT_NAME}-jenkins
+- apiVersion: v1
+  kind: RoleBindingRestriction
+  metadata:
+    labels:
+        app: fabric8-tenant
+        provider: fabric8
+        version: ${COMMIT}
+    name: dsaas-access-sa-ns
+  spec: 
+    serviceaccountrestriction:
+      namespaces: 
+      - ${PROJECT_NAME}-jenkins
+- apiVersion: v1
+  kind: RoleBinding
+  metadata:
+    labels:
+        app: fabric8-tenant
+        provider: fabric8
+        version: ${COMMIT}
+    name: dsaas-admin
+    namespace: ${PROJECT_NAME}
+  roleRef:
+    name: admin
+  subjects:
+  - kind: User
+    name: ${PROJECT_ADMIN_USER}
+  userNames:
+  - ${PROJECT_ADMIN_USER}
+parameters:
+- name: PROJECT_NAME
+  value: myproject
+- name: PROJECT_ADMIN_USER
+  value: developer
+- name: COMMIT
+  value: 123abc

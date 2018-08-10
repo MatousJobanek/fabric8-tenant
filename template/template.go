@@ -47,9 +47,6 @@ const (
 	ValKindResourceQuota          = "ResourceQuota"
 
 	varProjectName           = "PROJECT_NAME"
-	varProjectTemplateName   = "PROJECT_TEMPLATE_NAME"
-	varProjectDisplayName    = "PROJECT_DISPLAYNAME"
-	varProjectDescription    = "PROJECT_DESCRIPTION"
 	varProjectUser           = "PROJECT_USER"
 	varProjectRequestingUser = "PROJECT_REQUESTING_USER"
 	varProjectAdminUser      = "PROJECT_ADMIN_USER"
@@ -82,9 +79,6 @@ func ProcessTemplates(username string, config *configuration.Data, tmpls ...stri
 
 	vars := map[string]string{
 		varProjectName:           namespace,
-		varProjectTemplateName:   namespace,
-		varProjectDisplayName:    namespace,
-		varProjectDescription:    namespace,
 		varProjectUser:           username,
 		varProjectRequestingUser: username,
 		varProjectNamespace:      namespace,
