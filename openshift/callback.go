@@ -54,7 +54,7 @@ func GetObjectExpects404(client *Client, object template.Object, endpoint *Objec
 
 func checkHTTPCode(response *http.Response, e error) error {
 	if e == nil && response != nil && (response.StatusCode < 200 || response.StatusCode >= 300) {
-		return fmt.Errorf("server responded with status: %s", response.StatusCode)
+		return fmt.Errorf("server responded with status: %d", response.StatusCode)
 	}
 	return e
 }

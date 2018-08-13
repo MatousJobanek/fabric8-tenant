@@ -1,4 +1,4 @@
-package test
+package testdoubles
 
 import (
 	"testing"
@@ -8,6 +8,10 @@ import (
 	"net/http"
 	"github.com/sirupsen/logrus"
 	"github.com/fabric8-services/fabric8-tenant/log"
+	"github.com/fabric8-services/fabric8-tenant/auth"
+	"github.com/stretchr/testify/require"
+	"github.com/fabric8-services/fabric8-tenant/test/recorder"
+	commonConfig "github.com/fabric8-services/fabric8-common/configuration"
 )
 
 func LoadTestConfig(t *testing.T) *configuration.Data {
@@ -33,4 +37,21 @@ func NewTestLogger() log.Logger {
 	logrus.SetLevel(logrus.WarnLevel)
 	//nullLogger.Out = ioutil.Discard // TODO rethink if we want to discard logging entirely for testing
 	return logrus.NewEntry(nullLogger)
+}
+
+func NewAuthClientService(t *testing.T, cassetteName, authURL string, recorderOptions ...recorder.Option) *auth.Service {
+	var options  []commonConfig.HTTPClientOption
+	if cassetteName != "" {
+		r, err := recorder.New(cassetteName, recorderOptions...)
+		require.NoError(t, err)
+		defer r.Stop()
+		options = append(options, commonConfig.WithRoundTripper(r))
+	}
+	config := LoadTestConfig(t)
+	config.Set(configuration.VarAuthURL, authURL)
+	authService := &auth.Service{
+		Config:        config,
+		ClientOptions: options,
+	}
+	return authService
 }

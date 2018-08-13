@@ -5,8 +5,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/fabric8-services/fabric8-tenant/template"
-	"github.com/fabric8-services/fabric8-tenant/internal/test"
 	"regexp"
+	"github.com/fabric8-services/fabric8-tenant/test/doubles"
 )
 
 var processTemplate = `
@@ -122,7 +122,7 @@ objects:
 `
 
 func TestSort(t *testing.T) {
-	data := test.LoadTestConfig(t)
+	data := testdoubles.LoadTestConfig(t)
 
 	objects, err := template.ProcessTemplates("developer", data, sortTemplate)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestParseNamespace(t *testing.T) {
-	objects, err := template.ProcessTemplates("developer", test.LoadTestConfig(t), parseNamespaceTemplate)
+	objects, err := template.ProcessTemplates("developer", testdoubles.LoadTestConfig(t), parseNamespaceTemplate)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Namespace", kind(objects[0]))

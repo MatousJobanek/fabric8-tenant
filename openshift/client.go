@@ -14,7 +14,6 @@ import (
 	tmpl "html/template"
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	"github.com/fabric8-services/fabric8-tenant/log"
-	"github.com/fabric8-services/fabric8-tenant/controller"
 )
 
 type Client struct {
@@ -34,14 +33,14 @@ type ClientWithObjectsBuilder struct {
 	objects template.Objects
 }
 
-func NewClient(log log.Logger, cluster controller.Cluster, config *configuration.Data) *WithClientBuilder {
+func NewClient(log log.Logger, clusterURL, token string, config *configuration.Data) *WithClientBuilder {
 	httpTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: config.APIServerInsecureSkipTLSVerify(),
 		},
 	}
 
-	return NewClientWithTransport(log, cluster.APIURL, cluster.Token, config, httpTransport)
+	return NewClientWithTransport(log, clusterURL, token, config, httpTransport)
 }
 
 func NewClientWithTransport(log log.Logger, clusterURL, token string, config *configuration.Data, httpTransport http.RoundTripper) *WithClientBuilder {

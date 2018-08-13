@@ -2,13 +2,13 @@ package openshift_test
 
 import (
 	"testing"
-	"github.com/fabric8-services/fabric8-tenant/internal/test"
 	"github.com/fabric8-services/fabric8-tenant/template"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/h2non/gock.v1"
 	"os"
 	"github.com/fabric8-services/fabric8-tenant/openshift"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
+	"github.com/fabric8-services/fabric8-tenant/test/doubles"
 )
 
 var templateHeader = `
@@ -64,12 +64,12 @@ func TestMain(m *testing.M) {
 }
 
 func createOpenshiftClient(config *configuration.Data) *openshift.WithClientBuilder {
-	return test.NewOpenshiftClient("http://starter.com", "USFpK7R-YBRlRONI5Ru-GakBtP7fr891rg", config)
+	return testdoubles.NewOpenshiftClient("http://starter.com", "USFpK7R-YBRlRONI5Ru-GakBtP7fr891rg", config)
 }
 
 func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 	// given
-	config := test.LoadTestConfig(t)
+	config := testdoubles.LoadTestConfig(t)
 	objects, err := template.ProcessTemplates("aslak-test", config, templateHeader+namespaceObject+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
@@ -95,7 +95,7 @@ func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 
 func TestDeleteIfThereIsConflict(t *testing.T) {
 	// given
-	config := test.LoadTestConfig(t)
+	config := testdoubles.LoadTestConfig(t)
 	objects, err := template.ProcessTemplates("aslak-test", config, templateHeader+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
@@ -124,7 +124,7 @@ func TestDeleteIfThereIsConflict(t *testing.T) {
 
 func TestDeleteAndGet(t *testing.T) {
 	// given
-	config := test.LoadTestConfig(t)
+	config := testdoubles.LoadTestConfig(t)
 	objects, err := template.ProcessTemplates("aslak-test", config, templateHeader+roleBindingRestrictionObject)
 	require.NoError(t, err)
 

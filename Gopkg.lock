@@ -39,7 +39,10 @@
 
 [[projects]]
   name = "github.com/dgrijalva/jwt-go"
-  packages = ["."]
+  packages = [
+    ".",
+    "request"
+  ]
   revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
   version = "v3.2.0"
 
@@ -56,6 +59,15 @@
   version = "v5.0.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/dnaeon/go-vcr"
+  packages = [
+    "cassette",
+    "recorder"
+  ]
+  revision = "0192610d7f834dc305a8c3fae3987e1405cc41b8"
+
+[[projects]]
   name = "github.com/evalphobia/logrus_sentry"
   packages = ["."]
   revision = "b78b27461c8163c45abf4ab3a8330d2b1ee9456a"
@@ -63,13 +75,20 @@
 
 [[projects]]
   name = "github.com/fabric8-services/fabric8-auth"
-  packages = ["design"]
+  packages = [
+    "design",
+    "errors"
+  ]
   revision = "19eb16aaf10758299c4a5360600af983b8470909"
 
 [[projects]]
   branch = "master"
   name = "github.com/fabric8-services/fabric8-common"
-  packages = ["errors"]
+  packages = [
+    "configuration",
+    "errors",
+    "httpsupport"
+  ]
   revision = "aa42fc1fd2a2a33c70a0cdca50fb5d621ae0b71b"
 
 [[projects]]
@@ -162,6 +181,18 @@
   version = "v1.0"
 
 [[projects]]
+  name = "github.com/jinzhu/gorm"
+  packages = ["."]
+  revision = "6ed508ec6a4ecb3531899a69cbc746ccf65a4166"
+  version = "v1.9.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/jinzhu/inflection"
+  packages = ["."]
+  revision = "04140366298a54a039076d798123ffa108fff46c"
+
+[[projects]]
   name = "github.com/jstemmer/go-junit-report"
   packages = [
     ".",
@@ -178,6 +209,15 @@
   ]
   revision = "bbd0c6e271208dce66d8fda4bc536453cd27fc4a"
   version = "v3.0.7"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/lib/pq"
+  packages = [
+    ".",
+    "oid"
+  ]
+  revision = "90697d60dd844d5ef6ff15135d0203f65d2f53b8"
 
 [[projects]]
   name = "github.com/magiconair/properties"
@@ -269,7 +309,8 @@
   name = "github.com/stretchr/testify"
   packages = [
     "assert",
-    "require"
+    "require",
+    "suite"
   ]
   revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
   version = "v1.2.2"
@@ -284,6 +325,23 @@
   name = "github.com/zach-klippenstein/goregen"
   packages = ["."]
   revision = "795b5e3961ea1912fde60af417ad85e86acc0d6a"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/crypto"
+  packages = [
+    "cast5",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "openpgp",
+    "openpgp/armor",
+    "openpgp/elgamal",
+    "openpgp/errors",
+    "openpgp/packet",
+    "openpgp/s2k",
+    "pbkdf2"
+  ]
+  revision = "de0752318171da717af4ce24d0a2e8626afaeb11"
 
 [[projects]]
   branch = "master"
@@ -326,6 +384,16 @@
   version = "v1.0.9"
 
 [[projects]]
+  name = "gopkg.in/square/go-jose.v2"
+  packages = [
+    ".",
+    "cipher",
+    "json"
+  ]
+  revision = "8254d6c783765f38c8675fae4427a1fe73fbd09d"
+  version = "v2.1.8"
+
+[[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
@@ -334,6 +402,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "932d98ff0d227d3b72fa8cbd4e1112a2abc7d8d7dec535307c6eb2b870bc22cc"
+  inputs-digest = "d05318d7c8d0c7f120f99a9e4687ac7cf443284763aea9b11aec00b078b56c8f"
   solver-name = "gps-cdcl"
   solver-version = 1
