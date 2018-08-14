@@ -163,8 +163,8 @@ func TestCreateUsername(t *testing.T) {
 }
 
 func assertName(t *testing.T, expected, username string) {
-	assert.Regexp(t, dnsRegExp, template.CreateNSName(username))
-	assert.Equal(t, expected, template.CreateNSName(username))
+	assert.Regexp(t, dnsRegExp, template.RetrieveUserName(username))
+	assert.Equal(t, expected, template.RetrieveUserName(username))
 }
 
 func TestProcess(t *testing.T) {

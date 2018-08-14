@@ -12,7 +12,6 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/openshift"
 	"github.com/fabric8-services/fabric8-wit/log"
 	"github.com/pkg/errors"
-	"fmt"
 )
 
 // Cluster a cluster
@@ -60,16 +59,16 @@ func NewClusterService(refreshInt time.Duration, authClientService *auth.Service
 		cacheRefreshLock:  &sync.RWMutex{},
 	}
 	// immediately load the list of clusters before returning
-	err := s.refreshCache(context.Background())
-	if err != nil {
-		log.Error(nil, map[string]interface{}{"error_message": err}, "failed to load the list of clusters during service initialization")
-		return nil, err
-	}
-	go func() {
-		for range cacheRefresher.C { // while the `cacheRefresh` ticker is running
-			s.refreshCache(context.Background())
-		}
-	}()
+	//err := s.refreshCache(context.Background())
+	//if err != nil {
+	//	log.Error(nil, map[string]interface{}{"error_message": err}, "failed to load the list of clusters during service initialization")
+	//	return nil, err
+	//}
+	//go func() {
+	//	for range cacheRefresher.C { // while the `cacheRefresh` ticker is running
+	//		s.refreshCache(context.Background())
+	//	}
+	//}()
 	return s, nil
 }
 
@@ -84,13 +83,13 @@ type clusterService struct {
 }
 
 func (s *clusterService) GetCluster(ctx context.Context, target string) (*Cluster, error) {
-	for _, cluster := range s.GetClusters(ctx) {
-		if cleanURL(target) == cleanURL(cluster.APIURL) {
-			return &cluster, nil
-		}
-	}
-	return nil, fmt.Errorf("unable to resolve cluster")
-
+	//for _, cluster := range s.GetClusters(ctx) {
+	//	if cleanURL(target) == cleanURL(cluster.APIURL) {
+	//		return &cluster, nil
+	//	}
+	//}
+	//return nil, fmt.Errorf("unable to resolve cluster")
+	return &Cluster{APIURL: "https://192.168.42.241:8443"}, nil
 }
 
 func (s *clusterService) GetClusters(ctx context.Context) []Cluster {

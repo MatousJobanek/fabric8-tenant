@@ -12,14 +12,14 @@ objects:
   kind: ProjectRequest
   metadata:
     annotations:
-      openshift.io/description: ${PROJECT_NAME} Che Environment
-      openshift.io/display-name: ${PROJECT_NAME} Che
+      openshift.io/description: ${USER_NAME} Che Environment
+      openshift.io/display-name: ${USER_NAME} Che
       openshift.io/requester: ${PROJECT_REQUESTING_USER}
     labels:
       app: fabric8-tenant-che
       provider: fabric8
       version: ${COMMIT}
-    name: ${PROJECT_NAME}-che
+    name: ${USER_NAME}${NAMESPACE_SUFFIX}
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -28,6 +28,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: dsaas-user-access
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   spec:
     userrestriction:
       users:
@@ -40,6 +41,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che-recommender-api-token
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   data:
     token: ${RECOMMENDER_API_TOKEN}
   type: fabric8.io/che-recommender-api-token
@@ -51,6 +53,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -62,6 +65,7 @@ objects:
       expose: "false"
       version: ${COMMIT}
     name: che-host
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   spec:
     ports:
     - name: http
@@ -79,6 +83,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   roleRef:
     name: admin
   subjects:
@@ -92,6 +97,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: user-edit
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   roleRef:
     name: edit
   subjects:
@@ -107,6 +113,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: user-view
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   roleRef:
     name: view
   subjects:
@@ -122,6 +129,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che-data-volume
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   spec:
     accessModes:
     - ReadWriteOnce
@@ -136,6 +144,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: claim-che-workspace
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   spec:
     accessModes:
     - ReadWriteOnce
@@ -150,8 +159,9 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   data:
-    hostname-http: ${PROJECT_NAME}-che.${DOMAIN}
+    hostname-http: ${USER_NAME}${NAMESPACE_SUFFIX}.${DOMAIN}
     workspace-storage: /home/user/che/workspaces
     workspace-storage-create-folders: "false"
     local-conf-dir: /etc/conf
@@ -196,6 +206,7 @@ objects:
       version: ${COMMIT}
       app: fabric8-tenant-che
     name: fabric8-online-che
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   data:
     metadata-url: http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che/maven-metadata.xml
     package-url-prefix: http://central.maven.org/maven2/io/fabric8/tenant/packages/fabric8-tenant-che/%[1]s/fabric8-tenant-che-%[1]s-
@@ -207,6 +218,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   spec:
     replicas: 1
     revisionHistoryLimit: 2
@@ -435,6 +447,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che
+    namespace: ${USER_NAME}${NAMESPACE_SUFFIX}
   spec:
     tls:
       insecureEdgeTerminationPolicy: Redirect
@@ -443,6 +456,10 @@ objects:
       kind: Service
       name: che-host
 parameters:
+- name: NAMESPACE_SUFFIX
+  value: -che
+- name: USER_NAME
+  value: developer
 - name: CHE_SERVER_VERSION
   value: 940f9ac-fabric8-e55beed
 - name: PROJECT_USER

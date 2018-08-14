@@ -8,33 +8,62 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/utils"
 )
 
-type Callback func(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, response *http.Response) error
+type BeforeCallback func(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error)
+type AfterCallback func(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error
 
-func WhenConflictThenDeleteAndRetry(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, response *http.Response) error {
-	if response.StatusCode == http.StatusConflict {
-		err := endpoints.ApplyWithMethodCallback(client, object, http.MethodDelete)
-		if err != nil {
-			return err
+// Before callbacks
+
+func GetObjectAndMerge(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error) {
+	result, err := endpoints.ApplyWithMethodCallback(client, object, http.MethodGet)
+	if err != nil {
+		if result.response.StatusCode == http.StatusNotFound {
+			return getMethodAndMarshalObject(endpoints, http.MethodPost, object)
 		}
-		return checkHTTPCode(client.Do(method.requestCreator, object))
+		return nil, nil, err
 	}
-	return checkHTTPCode(response, nil)
+	modifiedJson, err := utils.MarshalYAMLToJSON(object)
+	if err != nil {
+		return nil, nil, err
+	}
+	return method, modifiedJson, nil
 }
 
-func IgnoreConflicts(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, response *http.Response) error {
-	if response.StatusCode == http.StatusConflict {
+func getMethodAndMarshalObject(endpoints *ObjectEndpoints,method string, object template.Object) (*MethodDefinition, []byte, error) {
+	post, err := endpoints.getMethodDefinition(method, object)
+	if err != nil {
+		return nil, nil, err
+	}
+	bytes, err := yaml.Marshal(object)
+	if err != nil {
+		return nil, nil, err
+	}
+	return post, bytes, nil
+}
+
+// After callbacks
+
+func WhenConflictThenPatch(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+	if result.response.StatusCode == http.StatusConflict {
+		return checkHTTPCode(endpoints.ApplyWithMethodCallback(client, object, http.MethodPatch))
+	}
+	return checkHTTPCode(result, nil)
+}
+
+func IgnoreConflicts(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+	if result.response.StatusCode == http.StatusConflict {
 		return nil
 	}
-	return checkHTTPCode(response, nil)
+	return checkHTTPCode(result, nil)
 }
 
-func GetObject(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, response *http.Response) error {
+func GetObject(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	// todo - shouldn't we check the response codes here as well?
-	return endpoints.ApplyWithMethodCallback(client, object, http.MethodGet)
+	_, err := endpoints.ApplyWithMethodCallback(client, object, http.MethodGet)
+	return err
 }
 
-func GetObjectExpects404(client *Client, object template.Object, endpoint *ObjectEndpoints, method *MethodDefinition, response *http.Response) error {
-	err := checkHTTPCode(response, nil)
+func GetObjectExpects404(client *Client, object template.Object, endpoint *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+	err := checkHTTPCode(result, nil)
 	if err != nil {
 		return err
 	}
@@ -42,9 +71,9 @@ func GetObjectExpects404(client *Client, object template.Object, endpoint *Objec
 	if err != nil {
 		return err
 	}
-	getResponse, err := client.Do(get.requestCreator, object)
+	getResponse, err := client.MarshalAndDo(get.requestCreator, object)
 	if getResponse.StatusCode != http.StatusNotFound {
-		err = checkHTTPCode(getResponse, err)
+		err = checkHTTPCode(newResult(getResponse, err))
 		if err == nil {
 			return fmt.Errorf("obbject %s wasn't removed", object)
 		}
@@ -52,28 +81,29 @@ func GetObjectExpects404(client *Client, object template.Object, endpoint *Objec
 	return err
 }
 
-func checkHTTPCode(response *http.Response, e error) error {
-	if e == nil && response != nil && (response.StatusCode < 200 || response.StatusCode >= 300) {
-		return fmt.Errorf("server responded with status: %d", response.StatusCode)
+func checkHTTPCode(result *Result, e error) error {
+	if e == nil && result.response != nil && (result.response.StatusCode < 200 || result.response.StatusCode >= 300) {
+		return fmt.Errorf("server responded with status: %d for the request %s %s with the body %s",
+			result.response.StatusCode, result.response.Request.Method, result.response.Request.URL, result.body)
 	}
 	return e
 }
 
-func LogRequestInfo(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, response *http.Response) error {
+func LogRequestInfo(client *Client, object template.Object, method *MethodDefinition, result *Result) error {
 	client.Log.WithFields(map[string]interface{}{
-		"status":      response.StatusCode,
+		"status":      result.response.StatusCode,
 		"method":      method.action,
-		"cluster_url": response.Request.URL,
+		"cluster_url": result.response.Request.URL,
 		"namespace":   template.GetNamespace(object),
 		"name":        template.GetName(object),
 		"kind":        template.GetKind(object),
 		"request":     yamlString(object),
-		"response":    utils.ReadBody(response),
+		"response":    result,
 	}).Info("resource requested")
 	return nil
 }
 
-func yamlString(data map[interface{}]interface{}) string {
+func yamlString(data template.Object) string {
 	b, err := yaml.Marshal(data)
 	if err != nil {
 		return fmt.Sprintf("Could not marshal yaml %v", data)

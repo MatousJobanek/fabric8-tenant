@@ -7,7 +7,7 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/template/generated"
 )
 
-//go:generate go-bindata -prefix "./assets/" -pkg assets  -o ./generated/templates.go ./assets/...
+//go:generate go-bindata -prefix "./assets/" -pkg assets -o ./generated/templates.go ./assets/...
 
 const (
 	rawFileFabric8TenantServiceURL = "https://github.com/fabric8-services/fabric8-tenant/blob/%s/%s"
@@ -15,8 +15,9 @@ const (
 )
 
 type template struct {
-	filename      string
-	defaultParams map[string]string
+	filename        string
+	namespaceSuffix string
+	defaultParams   map[string]string
 }
 
 var (
@@ -25,19 +26,20 @@ var (
 	noParams    map[string]string
 )
 
-func newTemplate(filename string, defaultParams map[string]string) template {
+func newTemplate(filename, namespaceSuffix string, defaultParams map[string]string) template {
 	return template{
-		filename:      filename,
-		defaultParams: defaultParams,
+		filename:        filename,
+		defaultParams:   defaultParams,
+		namespaceSuffix: namespaceSuffix,
 	}
 }
 
 var templateNames = map[string]template{
-	"run":     newTemplate("fabric8-tenant-environment.yml", runParams),
-	"stage":   newTemplate("fabric8-tenant-environment.yml", stageParams),
-	"che":     newTemplate("fabric8-tenant-che.yml", noParams),
-	"che-mt":  newTemplate("fabric8-tenant-che-mt.yml", noParams),
-	"jenkins": newTemplate("fabric8-tenant-jenkins.yml", noParams),
+	"run":     newTemplate("fabric8-tenant-environment.yml", "-run", runParams),
+	"stage":   newTemplate("fabric8-tenant-environment.yml", "-stage", stageParams),
+	"che":     newTemplate("fabric8-tenant-che.yml", "-che", noParams),
+	"che-mt":  newTemplate("fabric8-tenant-che-mt.yml", "-che", noParams),
+	"jenkins": newTemplate("fabric8-tenant-jenkins.yml", "-jenkins", noParams),
 }
 
 func RetrieveTemplatesObjects(namespace *string, username string, config *configuration.Data) (Objects, error) {
@@ -60,7 +62,7 @@ func RetrieveTemplatesObjects(namespace *string, username string, config *config
 		templates = append(templates, content)
 	}
 
-	objects, err := ProcessTemplates(username, config, templates...)
+	objects, err := ProcessTemplates(username, *namespace, config, templates...)
 	if err != nil {
 		return objects, err
 	}
@@ -68,15 +70,15 @@ func RetrieveTemplatesObjects(namespace *string, username string, config *config
 }
 
 func retrieveTemplate(template template, config *configuration.Data) (string, error) {
-	pathToTemplate := templatesDirectory + template.filename
 	var (
 		content []byte
 		err     error
 	)
 	if config.GetFabric8TenantServiceRepoSha() != "" {
+		pathToTemplate := templatesDirectory + template.filename
 		content, err = utils.DownloadFile(fmt.Sprintf(rawFileFabric8TenantServiceURL, config.GetFabric8TenantServiceRepoSha(), pathToTemplate))
 	} else {
-		content, err = assets.Asset(pathToTemplate)
+		content, err = assets.Asset(template.filename)
 	}
 	if err != nil {
 		return "", err

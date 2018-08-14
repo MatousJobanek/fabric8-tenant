@@ -148,6 +148,7 @@ func (c *TenantController) parseTokens(ctx context.Context) (*cluster.Cluster, s
 	}
 	// todo
 	cluster.Token = openshiftUserToken
+	cluster.Token = "SfxTgps5VblOEd4MPIWwh4ulcFDznvKkljJ0ViEUpSo"
 
 	return cluster, openshiftUsername, nil
 }

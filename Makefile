@@ -207,6 +207,7 @@ migrate-database: $(BINARY_SERVER_BIN)
 .PHONY: generate
 ## Generate GOA sources. Only necessary after clean of if changed `design` folder.
 generate: app/controllers.go
+	go generate ./template/...
 
 .PHONY: local
 local: build

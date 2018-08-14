@@ -31,7 +31,10 @@ func DownloadFile(url string) ([]byte, error) {
 	return body, nil
 }
 
-func ReadBody(response *http.Response) string {
+func ReadBody(response *http.Response) []byte {
+	if response == nil {
+		return []byte{}
+	}
 	defer func() {
 		ioutil.ReadAll(response.Body)
 		response.Body.Close()
@@ -39,5 +42,5 @@ func ReadBody(response *http.Response) string {
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
-	return string(buf.Bytes())
+	return buf.Bytes()
 }

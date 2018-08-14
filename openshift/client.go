@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"net/http/httputil"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"crypto/tls"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
 	"github.com/fabric8-services/fabric8-tenant/template"
@@ -14,6 +13,8 @@ import (
 	tmpl "html/template"
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	"github.com/fabric8-services/fabric8-tenant/log"
+	"gopkg.in/yaml.v2"
+	"sync"
 )
 
 type Client struct {
@@ -91,17 +92,26 @@ func (b *ClientWithObjectsBuilder) WithDeleteMethod() error {
 	return applyAll(b.client, http.MethodDelete, b.objects)
 }
 
-func applyAll(client *Client, action string, objects []map[interface{}]interface{}) error {
+func applyAll(client *Client, action string, objects template.Objects) error {
+
+	var wg sync.WaitGroup
+	wg.Add(len(objects))
+
 	for _, object := range objects {
 		objectEndpoint, found := objectEndpoints[template.GetKind(object)]
 		if !found {
 			return fmt.Errorf("there is no supported endpoint for the object %s", template.GetKind(object))
 		}
-		err := objectEndpoint.ApplyWithMethodCallback(client, object, action)
-		if err != nil {
-			return err
-		}
+		go func (client Client, action string, object template.Object) {
+			defer wg.Done()
+			_, err := objectEndpoint.ApplyWithMethodCallback(&client, object, action)
+			if err != nil {
+				// todo log error
+				return
+			}
+		}(*client, action, object)
 	}
+	wg.Wait()
 	return nil
 }
 
@@ -111,8 +121,16 @@ type RequestCreator struct {
 	creator func(urlCreator urlCreator, body []byte) (*http.Request, error)
 }
 
-func (c *Client) Do(requestCreator RequestCreator, object template.Object) (*http.Response, error) {
-	req, err := requestCreator.createRequestFor(c.MasterURL, object)
+func (c *Client) MarshalAndDo(requestCreator RequestCreator, object template.Object) (*http.Response, error) {
+	body, err := yaml.Marshal(object)
+	if err != nil {
+		return nil, err
+	}
+	return c.Do(requestCreator, object, body)
+}
+
+func (c *Client) Do(requestCreator RequestCreator, object template.Object, body []byte) (*http.Response, error) {
+	req, err := requestCreator.createRequestFor(c.MasterURL, object, body)
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +155,7 @@ func (c *Client) Do(requestCreator RequestCreator, object template.Object) (*htt
 	return resp, err
 }
 
-func (c *RequestCreator) createRequestFor(masterURL string, object map[interface{}]interface{}) (*http.Request, error) {
-	body, err := yaml.Marshal(object)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *RequestCreator) createRequestFor(masterURL string, object template.Object, body []byte) (*http.Request, error) {
 	urlCreator := func(urlTemplate string) func() (string, error) {
 		return func() (string, error) {
 			return createURL(masterURL, urlTemplate, object)
@@ -152,7 +165,7 @@ func (c *RequestCreator) createRequestFor(masterURL string, object map[interface
 	return c.creator(urlCreator, body)
 }
 
-func createURL(hostURL, urlTemplate string, object map[interface{}]interface{}) (string, error) {
+func createURL(hostURL, urlTemplate string, object template.Object) (string, error) {
 	target, err := tmpl.New("url").Parse(urlTemplate)
 	if err != nil {
 		return "", err

@@ -46,12 +46,13 @@ const (
 	ValKindDeploymentConfig       = "DeploymentConfig"
 	ValKindResourceQuota          = "ResourceQuota"
 
-	varProjectName           = "PROJECT_NAME"
+	varUserName              = "USER_NAME"
 	varProjectUser           = "PROJECT_USER"
 	varProjectRequestingUser = "PROJECT_REQUESTING_USER"
 	varProjectAdminUser      = "PROJECT_ADMIN_USER"
 	varProjectNamespace      = "PROJECT_NAMESPACE"
 	varKeycloakURL           = "KEYCLOAK_URL"
+	varNamespaceSuffix       = "NAMESPACE_SUFFIX"
 )
 
 var sortOrder = map[string]int{
@@ -71,17 +72,18 @@ var sortOrder = map[string]int{
 	"Job":                    13,
 }
 
-type Objects []map[interface{}]interface{}
-type Object map[interface{}]interface{}
+type Objects []map[string]interface{}
+type Object map[string]interface{}
 
-func ProcessTemplates(username string, config *configuration.Data, tmpls ...string) (Objects, error) {
-	namespace := CreateNSName(username)
+func ProcessTemplates(user, namespaceType string, config *configuration.Data, tmpls ...string) (Objects, error) {
+	userName := RetrieveUserName(user)
 
 	vars := map[string]string{
-		varProjectName:           namespace,
-		varProjectUser:           username,
-		varProjectRequestingUser: username,
-		varProjectNamespace:      namespace,
+		varUserName:              userName,
+		varProjectUser:           user,
+		varProjectRequestingUser: user,
+		varProjectNamespace:      userName + "-" + namespaceType,
+		varNamespaceSuffix:       "-" + namespaceType,
 		//varProjectAdminUser:      config.MasterUser,
 	}
 
@@ -91,13 +93,13 @@ func ProcessTemplates(username string, config *configuration.Data, tmpls ...stri
 		}
 	}
 
-	var objects []map[interface{}]interface{}
+	var objects Objects
 	for _, template := range tmpls {
 		pt, err := Process(template, vars)
 		if err != nil {
 			return objects, err
 		}
-		objs, err := ParseObjects(pt, namespace)
+		objs, err := ParseObjects(pt, userName+"-"+namespaceType)
 		if err != nil {
 			return objects, err
 		}
@@ -108,8 +110,8 @@ func ProcessTemplates(username string, config *configuration.Data, tmpls ...stri
 	return objects, nil
 }
 
-// CreateNSName returns a safe namespace basename based on a username
-func CreateNSName(username string) string {
+// RetrieveUserName returns a safe namespace basename based on a username
+func RetrieveUserName(username string) string {
 	return regexp.MustCompile("[^a-z0-9]").ReplaceAllString(strings.Split(username, "@")[0], "-")
 }
 
@@ -124,7 +126,7 @@ func getVariables(config *configuration.Data) map[string]string {
 	if err != nil {
 		panic(err)
 	}
-
+	templateVars["COMMIT"] = "123abc"
 	templateVars["KEYCLOAK_URL"] = ""
 	templateVars["KEYCLOAK_OSO_ENDPOINT"] = keycloakConfig.CustomBrokerTokenURL("openshift-v3")
 	templateVars["KEYCLOAK_GITHUB_ENDPOINT"] = fmt.Sprintf("%s%s?for=https://github.com", config.GetAuthURL(), authClient.RetrieveTokenPath())
@@ -154,8 +156,8 @@ func replaceTemplateExpression(template string) string {
 }
 
 // ParseObjects return a string yaml and return a array of the objects/items from a Template/List kind
-func ParseObjects(source string, namespace string) ([]map[interface{}]interface{}, error) {
-	var template map[interface{}]interface{}
+func ParseObjects(source string, namespace string) (Objects, error) {
+	var template Object
 
 	err := yaml.Unmarshal([]byte(source), &template)
 	if err != nil {
@@ -169,14 +171,19 @@ func ParseObjects(source string, namespace string) ([]map[interface{}]interface{
 		} else if GetKind(template) == ValKindList {
 			ts = template[FieldItems].([]interface{})
 		}
-		var objs []map[interface{}]interface{}
+		var objs Objects
 		for _, obj := range ts {
-			objs = append(objs, obj.(map[interface{}]interface{}))
+			parsedObj := obj.(map[interface{}]interface{})
+			stringKeys := make(Object, len(parsedObj))
+			for key, value := range parsedObj {
+				stringKeys[key.(string)] = value
+			}
+			objs = append(objs, stringKeys)
 		}
 		if namespace != "" {
 			for _, obj := range objs {
 				kind := GetKind(obj)
-				if val, ok := obj[FieldMetadata].(map[interface{}]interface{}); ok && kind != ValKindProjectRequest && kind != ValKindNamespace {
+				if val, ok := obj[FieldMetadata].(Object); ok && kind != ValKindProjectRequest && kind != ValKindNamespace {
 					if _, ok := val[FieldNamespace]; !ok {
 						val[FieldNamespace] = namespace
 					}
@@ -186,11 +193,11 @@ func ParseObjects(source string, namespace string) ([]map[interface{}]interface{
 		return objs, nil
 	}
 
-	return []map[interface{}]interface{}{template}, nil
+	return Objects{template}, nil
 }
 
-func GetName(obj map[interface{}]interface{}) string {
-	if meta, metaFound := obj[FieldMetadata].(map[interface{}]interface{}); metaFound {
+func GetName(obj Object) string {
+	if meta, metaFound := obj[FieldMetadata].(Object); metaFound {
 		if name, nameFound := meta[FieldName].(string); nameFound {
 			return name
 		}
@@ -198,8 +205,8 @@ func GetName(obj map[interface{}]interface{}) string {
 	return ""
 }
 
-func GetNamespace(obj map[interface{}]interface{}) string {
-	if meta, metaFound := obj[FieldMetadata].(map[interface{}]interface{}); metaFound {
+func GetNamespace(obj Object) string {
+	if meta, metaFound := obj[FieldMetadata].(Object); metaFound {
 		if name, nameFound := meta[FieldNamespace].(string); nameFound {
 			return name
 		}
@@ -207,7 +214,7 @@ func GetNamespace(obj map[interface{}]interface{}) string {
 	return ""
 }
 
-func GetKind(obj map[interface{}]interface{}) string {
+func GetKind(obj Object) string {
 	if kind, kindFound := obj[FieldKind].(string); kindFound {
 		return kind
 	}
@@ -215,7 +222,7 @@ func GetKind(obj map[interface{}]interface{}) string {
 }
 
 // ByKind represents a list of Openshift objects sortable by Kind
-type ByKind []map[interface{}]interface{}
+type ByKind Objects
 
 func (a ByKind) Len() int      { return len(a) }
 func (a ByKind) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
