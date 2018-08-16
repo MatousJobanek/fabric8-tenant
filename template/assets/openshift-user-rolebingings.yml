@@ -19,7 +19,7 @@ objects:
     userrestriction:
       users: 
       - ${PROJECT_ADMIN_USER}
-      - system:serviceaccount:${PROJECT_NAME}-jenkins:jenkins
+      - system:serviceaccount:${NAMESPACE_PREFIX}-jenkins:jenkins
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -31,7 +31,7 @@ objects:
   spec: 
     grouprestriction:
       groups: 
-      - system:serviceaccounts:${PROJECT_NAME}-jenkins
+      - system:serviceaccounts:${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -43,7 +43,7 @@ objects:
   spec: 
     serviceaccountrestriction:
       namespaces: 
-      - ${PROJECT_NAME}-jenkins
+      - ${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: RoleBinding
   metadata:
@@ -52,7 +52,7 @@ objects:
         provider: fabric8
         version: ${COMMIT}
     name: dsaas-admin
-    namespace: ${PROJECT_NAME}
+    namespace: ${NAMESPACE_PREFIX}
   roleRef:
     name: admin
   subjects:
@@ -61,8 +61,8 @@ objects:
   userNames:
   - ${PROJECT_ADMIN_USER}
 parameters:
-- name: PROJECT_NAME
-  value: myproject
+- name: NAMESPACE_PREFIX
+  value: developer
 - name: PROJECT_ADMIN_USER
   value: developer
 - name: COMMIT

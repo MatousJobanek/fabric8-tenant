@@ -12,14 +12,14 @@ objects:
   kind: ProjectRequest
   metadata:
     annotations:
-      openshift.io/description: ${PROJECT_NAME} Che Environment
-      openshift.io/display-name: ${PROJECT_NAME} Che
+      openshift.io/description: ${NAMESPACE_PREFIX} Che Environment
+      openshift.io/display-name: ${NAMESPACE_PREFIX} Che
       openshift.io/requester: ${PROJECT_REQUESTING_USER}
     labels:
       app: fabric8-tenant-che
       provider: fabric8
       version: ${COMMIT}
-    name: ${PROJECT_NAME}-che
+    name: ${NAMESPACE_PREFIX}-che
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -28,6 +28,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: dsaas-user-access
+    namespace: ${NAMESPACE_PREFIX}-che
   spec:
     userrestriction:
       users:
@@ -40,6 +41,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: che
+    namespace: ${NAMESPACE_PREFIX}-che
 - apiVersion: v1
   kind: RoleBinding
   metadata:
@@ -47,7 +49,8 @@ objects:
       app: fabric8-tenant-che-mt
       provider: fabric8
       version: ${COMMIT}
-    name: che
+    name: che-edit
+    namespace: ${NAMESPACE_PREFIX}-che
   roleRef:
     name: edit
   subjects:
@@ -61,6 +64,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: user-edit
+    namespace: ${NAMESPACE_PREFIX}-che
   roleRef:
     name: edit
   subjects:
@@ -76,6 +80,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: user-view
+    namespace: ${NAMESPACE_PREFIX}-che
   roleRef:
     name: view
   subjects:
@@ -91,6 +96,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: claim-che-workspace
+    namespace: ${NAMESPACE_PREFIX}-che
   spec:
     accessModes:
     - ReadWriteOnce
@@ -98,6 +104,8 @@ objects:
       requests:
         storage: 1Gi
 parameters:
+- name: NAMESPACE_PREFIX
+  value: developer
 - name: PROJECT_USER
   value: developer
 - name: CHE_MULTITENANT_SERVER

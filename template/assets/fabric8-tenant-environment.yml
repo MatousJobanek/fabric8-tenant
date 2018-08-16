@@ -12,14 +12,14 @@ objects:
   kind: ProjectRequest
   metadata:
     annotations:
-      openshift.io/description: ${PROJECT_NAME} ${ENV_TYPE} Environment
-      openshift.io/display-name: ${PROJECT_NAME} ${ENV_TYPE}
+      openshift.io/description: ${NAMESPACE_PREFIX} ${ENV_TYPE} Environment
+      openshift.io/display-name: ${NAMESPACE_PREFIX} ${ENV_TYPE}
       openshift.io/requester: ${PROJECT_REQUESTING_USER}
     labels:
       app: fabric8-tenant-${ENV_TYPE}
       provider: fabric8
       version: ${COMMIT}
-    name: ${PROJECT_NAME}-${ENV_TYPE}
+    name: ${NAMESPACE_PREFIX}-${ENV_TYPE}
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -28,11 +28,11 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: dsaas-access-sa-ns
-    namespace: ${PROJECT_NAME}-${ENV_TYPE}
+    namespace: ${NAMESPACE_PREFIX}-${ENV_TYPE}
   spec:
     serviceaccountrestriction:
       namespaces:
-      - ${PROJECT_NAME}-jenkins
+      - ${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -41,7 +41,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: dsaas-user-access
-    namespace: ${PROJECT_NAME}-${ENV_TYPE}
+    namespace: ${NAMESPACE_PREFIX}-${ENV_TYPE}
   spec:
     userrestriction:
       users:
@@ -54,14 +54,14 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-edit
-    namespace: ${PROJECT_NAME}-${ENV_TYPE}
+    namespace: ${NAMESPACE_PREFIX}-${ENV_TYPE}
   roleRef:
     name: edit
   subjects:
   - kind: ServiceAccount
     name: jenkins
   userNames:
-  - system:serviceaccount:${PROJECT_NAME}-jenkins:jenkins
+  - system:serviceaccount:${NAMESPACE_PREFIX}-jenkins:jenkins
 - apiVersion: v1
   kind: RoleBinding
   metadata:
@@ -70,14 +70,14 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-view
-    namespace: ${PROJECT_NAME}-${ENV_TYPE}
+    namespace: ${NAMESPACE_PREFIX}-${ENV_TYPE}
   roleRef:
     name: view
   subjects:
   - kind: ServiceAccount
     name: jenkins
   userNames:
-  - system:serviceaccount:${PROJECT_NAME}-jenkins:jenkins
+  - system:serviceaccount:${NAMESPACE_PREFIX}-jenkins:jenkins
 - apiVersion: v1
   kind: RoleBinding
   metadata:
@@ -86,7 +86,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: user-edit
-    namespace: ${PROJECT_NAME}-${ENV_TYPE}
+    namespace: ${NAMESPACE_PREFIX}-${ENV_TYPE}
   roleRef:
     name: edit
   subjects:
@@ -102,7 +102,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: user-view
-    namespace: ${PROJECT_NAME}-${ENV_TYPE}
+    namespace: ${NAMESPACE_PREFIX}-${ENV_TYPE}
   roleRef:
     name: view
   subjects:
@@ -111,6 +111,8 @@ objects:
   userNames:
   - ${PROJECT_USER}
 parameters:
+- name: NAMESPACE_PREFIX
+  value: developer
 - name: ENV_TYPE
   value: run
 - name: PROJECT_NAME

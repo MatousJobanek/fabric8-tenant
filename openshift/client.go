@@ -15,6 +15,7 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/log"
 	"gopkg.in/yaml.v2"
 	"sync"
+	"sort"
 )
 
 type Client struct {
@@ -27,11 +28,14 @@ type Client struct {
 
 type WithClientBuilder struct {
 	Client *Client
+	config *configuration.Data
 }
 
 type ClientWithObjectsBuilder struct {
-	client  *Client
-	objects template.Objects
+	client    *Client
+	templates []template.Template
+	user      string
+	config    *configuration.Data
 }
 
 func NewClient(log log.Logger, clusterURL, token string, config *configuration.Data) *WithClientBuilder {
@@ -45,13 +49,15 @@ func NewClient(log log.Logger, clusterURL, token string, config *configuration.D
 }
 
 func NewClientWithTransport(log log.Logger, clusterURL, token string, config *configuration.Data, httpTransport http.RoundTripper) *WithClientBuilder {
-	return &WithClientBuilder{Client: &Client{
-		client:        createHTTPClient(httpTransport),
-		MasterURL:     clusterURL,
-		Token:         token,
-		HTTPTransport: httpTransport,
-		Log:           log,
-	}}
+	return &WithClientBuilder{
+		Client: &Client{
+			client:        createHTTPClient(httpTransport),
+			MasterURL:     clusterURL,
+			Token:         token,
+			HTTPTransport: httpTransport,
+			Log:           log,
+		},
+		config: config}
 }
 
 // CreateHTTPClient returns an HTTP client with the options settings,
@@ -65,54 +71,83 @@ func createHTTPClient(HTTPTransport http.RoundTripper) *http.Client {
 	return http.DefaultClient
 }
 
-func (b *WithClientBuilder) ApplyAll(objects template.Objects) *ClientWithObjectsBuilder {
+func (b *WithClientBuilder) ProcessAndApply(template []template.Template, user string) *ClientWithObjectsBuilder {
 	return &ClientWithObjectsBuilder{
-		client:  b.Client,
-		objects: objects,
+		client:    b.Client,
+		templates: template,
+		user:      user,
+		config:    b.config,
 	}
 }
 
 func (b *ClientWithObjectsBuilder) WithPostMethod() error {
-	return applyAll(b.client, http.MethodPost, b.objects)
+	return processApplyAll(b, http.MethodPost)
 }
 
 func (b *ClientWithObjectsBuilder) WithPatchMethod() error {
-	return applyAll(b.client, http.MethodPatch, b.objects)
+	return processApplyAll(b, http.MethodPatch, )
 }
 
 func (b *ClientWithObjectsBuilder) WithPutMethod() error {
-	return applyAll(b.client, http.MethodPut, b.objects)
+	return processApplyAll(b, http.MethodPut)
 }
 
 func (b *ClientWithObjectsBuilder) WithGetMethod() error {
-	return applyAll(b.client, http.MethodGet, b.objects)
+	return processApplyAll(b, http.MethodGet)
 }
 
 func (b *ClientWithObjectsBuilder) WithDeleteMethod() error {
-	return applyAll(b.client, http.MethodDelete, b.objects)
+	return processApplyAll(b, http.MethodDelete)
 }
 
-func applyAll(client *Client, action string, objects template.Objects) error {
+func processApplyAll(builder *ClientWithObjectsBuilder, action string) error {
+	var templatesWait sync.WaitGroup
+	templatesWait.Add(len(builder.templates))
+	vars := template.CollectVars(builder.user, builder.config)
 
-	var wg sync.WaitGroup
-	wg.Add(len(objects))
+	for _, tmpl := range builder.templates {
+		go processAndApply(&templatesWait, tmpl, vars, *builder.client, action)
+	}
+	templatesWait.Wait()
+	return nil
+}
+
+func processAndApply(templatesWait *sync.WaitGroup, tmpl template.Template, vars map[string]string, client Client, action string) {
+	defer templatesWait.Done()
+	objects, err := tmpl.Process(vars)
+	if err != nil {
+		client.Log.Error(err)
+		return
+	}
+	if action == http.MethodDelete {
+		sort.Reverse(template.ByKind(objects))
+	} else {
+		sort.Sort(template.ByKind(objects))
+	}
+
+	var objectsWait sync.WaitGroup
+	objectsWait.Add(len(objects))
 
 	for _, object := range objects {
-		objectEndpoint, found := objectEndpoints[template.GetKind(object)]
-		if !found {
-			return fmt.Errorf("there is no supported endpoint for the object %s", template.GetKind(object))
-		}
-		go func (client Client, action string, object template.Object) {
-			defer wg.Done()
-			_, err := objectEndpoint.ApplyWithMethodCallback(&client, object, action)
-			if err != nil {
-				// todo log error
-				return
-			}
-		}(*client, action, object)
+		go apply(&objectsWait, client, action, object)
 	}
-	wg.Wait()
-	return nil
+	objectsWait.Wait()
+}
+
+func apply(objectsWait *sync.WaitGroup, client Client, action string, object template.Object) {
+	defer objectsWait.Done()
+
+	objectEndpoint, found := objectEndpoints[template.GetKind(object)]
+	if !found {
+		client.Log.Error("there is no supported endpoint for the object %s", template.GetKind(object))
+		return
+	}
+
+	_, err := objectEndpoint.Apply(&client, object, action)
+	if err != nil {
+		client.Log.Error(err)
+		return
+	}
 }
 
 type urlCreator func(urlTemplate string) func() (URL string, err error)

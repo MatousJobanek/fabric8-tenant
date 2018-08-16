@@ -70,7 +70,7 @@ func createOpenshiftClient(config *configuration.Data) *openshift.WithClientBuil
 func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 	// given
 	config := testdoubles.LoadTestConfig(t)
-	objects, err := template.ProcessTemplates("aslak-test", config, templateHeader+namespaceObject+roleBindingRestrictionObject)
+	objects, err := template.ProcessTemplate("aslak-test", config, templateHeader+namespaceObject+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
 	gock.New("http://starter.com").
@@ -87,7 +87,7 @@ func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 		Reply(200)
 
 	// when
-	err = createOpenshiftClient(config).ApplyAll(objects).WithPostMethod()
+	err = createOpenshiftClient(config).ProcessAndApply(objects).WithPostMethod()
 
 	// then
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 func TestDeleteIfThereIsConflict(t *testing.T) {
 	// given
 	config := testdoubles.LoadTestConfig(t)
-	objects, err := template.ProcessTemplates("aslak-test", config, templateHeader+roleBindingRestrictionObject)
+	objects, err := template.ProcessTemplate("aslak-test", config, templateHeader+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
 	gock.New("http://starter.com").
@@ -116,7 +116,7 @@ func TestDeleteIfThereIsConflict(t *testing.T) {
 		Reply(200)
 
 	// when
-	err = createOpenshiftClient(config).ApplyAll(objects).WithPostMethod()
+	err = createOpenshiftClient(config).ProcessAndApply(objects).WithPostMethod()
 
 	// then
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestDeleteIfThereIsConflict(t *testing.T) {
 func TestDeleteAndGet(t *testing.T) {
 	// given
 	config := testdoubles.LoadTestConfig(t)
-	objects, err := template.ProcessTemplates("aslak-test", config, templateHeader+roleBindingRestrictionObject)
+	objects, err := template.ProcessTemplate("aslak-test", config, templateHeader+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
 	gock.New("http://starter.com").
@@ -136,7 +136,7 @@ func TestDeleteAndGet(t *testing.T) {
 		Reply(404)
 
 	// when
-	err = createOpenshiftClient(config).ApplyAll(objects).WithDeleteMethod()
+	err = createOpenshiftClient(config).ProcessAndApply(objects).WithDeleteMethod()
 
 	// then
 	require.NoError(t, err)

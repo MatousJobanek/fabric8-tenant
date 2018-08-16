@@ -12,14 +12,14 @@ objects:
   kind: ProjectRequest
   metadata:
     annotations:
-      openshift.io/description: ${PROJECT_NAME} Jenkins Environment
-      openshift.io/display-name: ${PROJECT_NAME} Jenkins
+      openshift.io/description: ${NAMESPACE_PREFIX} Jenkins Environment
+      openshift.io/display-name: ${NAMESPACE_PREFIX} Jenkins
       openshift.io/requester: ${PROJECT_REQUESTING_USER}
     labels:
       app: fabric8-tenant-jenkins
       provider: fabric8
       version: ${COMMIT}
-    name: ${PROJECT_NAME}-jenkins
+    name: ${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -28,10 +28,11 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: dsaas-access-sa-ns
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     serviceaccountrestriction:
       namespaces:
-      - ${PROJECT_NAMESPACE}-jenkins
+      - ${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: RoleBindingRestriction
   metadata:
@@ -40,6 +41,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: dsaas-user-access
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     userrestriction:
       users:
@@ -52,6 +54,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-docker-cfg
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     config.json: ""
   type: fabric8.io/jenkins-docker-cfg
@@ -63,6 +66,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-git-ssh
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     ssh-key: ""
     ssh-key.pub: ""
@@ -75,6 +79,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-hub-api-token
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     hub: ""
   type: fabric8.io/jenkins-hub-api-token
@@ -86,6 +91,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-maven-settings
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     settings.xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjxzZXR0aW5ncz4NCiAgIDwhLS0gc2V0cyB0aGUgbG9jYWwgbWF2ZW4gcmVwb3NpdG9yeSBvdXRzaWRlIG9mIHRoZSB+Ly5tMiBmb2xkZXIgZm9yIGVhc2llciBtb3VudGluZyBvZiBzZWNyZXRzIGFuZCByZXBvIC0tPg0KICAgPGxvY2FsUmVwb3NpdG9yeT4ke3VzZXIuaG9tZX0vLm12bnJlcG9zaXRvcnk8L2xvY2FsUmVwb3NpdG9yeT4NCiAgIDwhLS0gbGV0cyBkaXNhYmxlIHRoZSBkb3dubG9hZCBwcm9ncmVzcyBpbmRpY2F0b3IgdGhhdCBmaWxscyB1cCBsb2dzIC0tPg0KICAgPGludGVyYWN0aXZlTW9kZT5mYWxzZTwvaW50ZXJhY3RpdmVNb2RlPg0KICAgPHNlcnZlcnM+DQogICAgICA8c2VydmVyPg0KICAgICAgICAgPGlkPm9zcy1zb25hdHlwZS1zdGFnaW5nPC9pZD4NCiAgICAgICAgIDx1c2VybmFtZSAvPg0KICAgICAgICAgPHBhc3N3b3JkIC8+DQogICAgICA8L3NlcnZlcj4NCiAgIDwvc2VydmVycz4NCiAgIDxwcm9maWxlcz4NCiAgICAgIDxwcm9maWxlPg0KICAgICAgICAgPGlkPm5leHVzPC9pZD4NCiAgICAgICAgIDxyZXBvc2l0b3JpZXM+DQogICAgICAgICAgICA8cmVwb3NpdG9yeT4NCiAgICAgICAgICAgICAgIDxpZD5jZW50cmFsPC9pZD4NCiAgICAgICAgICAgICAgIDx1cmw+aHR0cHM6Ly9yZXBvMS5tYXZlbi5vcmcvbWF2ZW4yPC91cmw+DQogICAgICAgICAgICAgICA8cmVsZWFzZXM+DQogICAgICAgICAgICAgICAgICA8ZW5hYmxlZD50cnVlPC9lbmFibGVkPg0KICAgICAgICAgICAgICAgPC9yZWxlYXNlcz4NCiAgICAgICAgICAgIDwvcmVwb3NpdG9yeT4NCiAgICAgICAgIDwvcmVwb3NpdG9yaWVzPg0KICAgICAgICAgPHBsdWdpblJlcG9zaXRvcmllcz4NCiAgICAgICAgICAgIDxwbHVnaW5SZXBvc2l0b3J5Pg0KICAgICAgICAgICAgICAgPGlkPmNlbnRyYWw8L2lkPg0KICAgICAgICAgICAgICAgPHVybD5odHRwczovL3JlcG8xLm1hdmVuLm9yZy9tYXZlbjI8L3VybD4NCiAgICAgICAgICAgICAgIDxyZWxlYXNlcz4NCiAgICAgICAgICAgICAgICAgIDxlbmFibGVkPnRydWU8L2VuYWJsZWQ+DQogICAgICAgICAgICAgICA8L3JlbGVhc2VzPg0KICAgICAgICAgICAgPC9wbHVnaW5SZXBvc2l0b3J5Pg0KICAgICAgICAgPC9wbHVnaW5SZXBvc2l0b3JpZXM+DQogICAgICA8L3Byb2ZpbGU+DQogICAgICA8cHJvZmlsZT4NCiAgICAgICAgIDxpZD5yZWxlYXNlPC9pZD4NCiAgICAgICAgIDxwcm9wZXJ0aWVzPg0KICAgICAgICAgICAgPGdwZy5leGVjdXRhYmxlPmdwZzwvZ3BnLmV4ZWN1dGFibGU+DQogICAgICAgICAgICA8Z3BnLnBhc3NwaHJhc2U+bXlzZWNyZXRwYXNzcGhyYXNlPC9ncGcucGFzc3BocmFzZT4NCiAgICAgICAgIDwvcHJvcGVydGllcz4NCiAgICAgIDwvcHJvZmlsZT4NCiAgIDwvcHJvZmlsZXM+DQogICA8YWN0aXZlUHJvZmlsZXM+DQogICAgICA8IS0tbWFrZSB0aGUgcHJvZmlsZSBhY3RpdmUgYWxsIHRoZSB0aW1lIC0tPg0KICAgICAgPGFjdGl2ZVByb2ZpbGU+bmV4dXM8L2FjdGl2ZVByb2ZpbGU+DQogICA8L2FjdGl2ZVByb2ZpbGVzPg0KPC9zZXR0aW5ncz4=
   type: fabric8.io/secret-maven-settings
@@ -97,6 +103,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-recommender-api-token
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     token: ${RECOMMENDER_API_TOKEN}
   type: fabric8.io/jenkins-recommender-api-token
@@ -108,6 +115,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-release-gpg
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     trustdb.gpg: ""
     pubring.gpg: ""
@@ -122,6 +130,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-ssh-config
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     config: ""
   type: fabric8.io/jenkins-ssh-config
@@ -133,6 +142,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: cd-bot
+    namespace: ${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: ServiceAccount
   metadata:
@@ -143,6 +153,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
 - apiVersion: v1
   kind: Service
   metadata:
@@ -152,6 +163,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: bayesian-link
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     externalName: ${RECOMMENDER_EXTERNAL_NAME}
     ports:
@@ -171,6 +183,7 @@ objects:
       expose: "true"
       version: ${COMMIT}
     name: jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     ports:
     - name: http
@@ -189,6 +202,7 @@ objects:
       expose: "false"
       version: ${COMMIT}
     name: jenkins-jnlp
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     ports:
     - name: agent
@@ -206,6 +220,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: edit-jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   roleRef:
     name: edit
   subjects:
@@ -219,7 +234,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: view
-    namespace: ${PROJECT_NAMESPACE}-jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   roleRef:
     name: view
   subjects:
@@ -235,6 +250,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: view-cd-bot
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   roleRef:
     name: view
   subjects:
@@ -248,6 +264,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: view-jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   roleRef:
     name: view
   subjects:
@@ -261,6 +278,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins-home
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     accessModes:
     - ReadWriteOnce
@@ -276,6 +294,7 @@ objects:
       version: ${COMMIT}
       app: fabric8-tenant-jenkins
     name: fabric8-online-jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     metadata-url: http://central.maven.org/maven2/io/fabric8/online/packages/fabric8-online-jenkins/maven-metadata.xml
     package-url-prefix: http://central.maven.org/maven2/io/fabric8/online/packages/fabric8-online-jenkins/%[1]s/fabric8-online-jenkins-%[1]s-
@@ -290,8 +309,9 @@ objects:
       version: ${COMMIT}
       app: fabric8-tenant-jenkins
     name: fabric8-space-link
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
-    space: ${PROJECT_NAMESPACE}
+    space: ${NAMESPACE_PREFIX}
     fabric8-console-url: ${FABRIC8_CONSOLE_URL}
     keycloak-url: ${KEYCLOAK_URL}
 - apiVersion: v1
@@ -302,6 +322,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   data:
     credentials.xml.tpl: |-
       <?xml version='1.0' encoding='UTF-8'?>
@@ -359,7 +380,7 @@ objects:
       <io.fabric8.jenkins.openshiftsync.GlobalPluginConfiguration plugin="openshift-sync@0.1-SNAPSHOT">
         <enabled>true</enabled>
         <jobNamePattern>.*</jobNamePattern>
-        <namespace>${PROJECT_NAMESPACE}</namespace>
+        <namespace>${NAMESPACE_PREFIX}</namespace>
       </io.fabric8.jenkins.openshiftsync.GlobalPluginConfiguration>
     org.jenkinsci.main.modules.sshd.SSHD.xml: |-
       <?xml version='1.0' encoding='UTF-8'?>
@@ -658,6 +679,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     replicas: 1
     revisionHistoryLimit: 2
@@ -679,8 +701,8 @@ objects:
       spec:
         containers:
         - env:
-          - name: PROJECT_NAMESPACE
-            value: ${PROJECT_NAMESPACE}
+          - name: NAMESPACE_PREFIX
+            value: ${NAMESPACE_PREFIX}
           - name: KUBERNETES_NAMESPACE
             valueFrom:
               fieldRef:
@@ -775,6 +797,7 @@ objects:
       provider: fabric8
       version: ${COMMIT}
     name: jenkins
+    namespace: ${NAMESPACE_PREFIX}-jenkins
   spec:
     tls:
       insecureEdgeTerminationPolicy: Redirect
@@ -783,6 +806,8 @@ objects:
       kind: Service
       name: jenkins
 parameters:
+- name: NAMESPACE_PREFIX
+  value: developer
 - name: JENKINS_OPENSHIFT_VERSION
   value: vc163197
 - name: PROJECT_USER

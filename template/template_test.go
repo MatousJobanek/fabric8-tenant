@@ -124,7 +124,7 @@ objects:
 func TestSort(t *testing.T) {
 	data := testdoubles.LoadTestConfig(t)
 
-	objects, err := template.ProcessTemplates("developer", data, sortTemplate)
+	objects, err := template.ProcessTemplate("developer", data, sortTemplate)
 	require.NoError(t, err)
 
 	assert.Equal(t, "ProjectRequest", kind(objects[0]))
@@ -134,7 +134,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestParseNamespace(t *testing.T) {
-	objects, err := template.ProcessTemplates("developer", testdoubles.LoadTestConfig(t), parseNamespaceTemplate)
+	objects, err := template.ProcessTemplate("developer", testdoubles.LoadTestConfig(t), parseNamespaceTemplate)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Namespace", kind(objects[0]))
@@ -175,9 +175,9 @@ func TestProcess(t *testing.T) {
 		"PROJECT_NAME":            "Aslak-Test",
 	}
 	processed, err := template.Process(processTemplate, vars)
-	require.Nil(t, err, "error processing template")
+	require.Nil(t, err, "error processing templateDef")
 
-	t.Run("verify no template markers in output", func(t *testing.T) {
+	t.Run("verify no templateDef markers in output", func(t *testing.T) {
 		assert.False(t, regexp.MustCompile(`\${([A-Z_]+)}`).MatchString(processed))
 	})
 	t.Run("verify markers were replaced", func(t *testing.T) {
@@ -199,7 +199,7 @@ func TestProcessVariables(t *testing.T) {
 	vars := map[string]string{}
 
 	processed, err := template.Process(processTemplateVariables, vars)
-	require.Nil(t, err, "error processing template")
+	require.Nil(t, err, "error processing templateDef")
 
 	t.Run("Verify non replaced markers are left", func(t *testing.T) {
 		assert.Contains(t, processed, "${KUBERNETES_CREDENTIALS}", "missing")

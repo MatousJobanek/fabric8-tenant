@@ -3,7 +3,6 @@ package template
 import (
 	"gopkg.in/yaml.v2"
 	"regexp"
-	"sort"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
 	"strings"
 	"fmt"
@@ -16,7 +15,7 @@ const (
 	FieldAPIVersion      = "apiVersion"
 	FieldObjects         = "objects"
 	FieldSpec            = "spec"
-	FieldTemplate        = "template"
+	FieldTemplate        = "templateDef"
 	FieldItems           = "items"
 	FieldMetadata        = "metadata"
 	FieldLabels          = "labels"
@@ -50,9 +49,8 @@ const (
 	varProjectUser           = "PROJECT_USER"
 	varProjectRequestingUser = "PROJECT_REQUESTING_USER"
 	varProjectAdminUser      = "PROJECT_ADMIN_USER"
-	varProjectNamespace      = "PROJECT_NAMESPACE"
+	varNamespacePrefix       = "NAMESPACE_PREFIX"
 	varKeycloakURL           = "KEYCLOAK_URL"
-	varNamespaceSuffix       = "NAMESPACE_SUFFIX"
 )
 
 var sortOrder = map[string]int{
@@ -75,39 +73,39 @@ var sortOrder = map[string]int{
 type Objects []map[string]interface{}
 type Object map[string]interface{}
 
-func ProcessTemplates(user, namespaceType string, config *configuration.Data, tmpls ...string) (Objects, error) {
+func (t Template) Process(vars map[string]string) (Objects, error) {
+
+	var objects Objects
+	templateVars := merge(vars, t.defaultParams)
+	pt, err := t.process(templateVars)
+	//fmt.Println(pt)
+	if err != nil {
+		return objects, err
+	}
+	return ParseObjects(pt)
+}
+
+func CollectVars(user string, config *configuration.Data) map[string]string {
 	userName := RetrieveUserName(user)
 
 	vars := map[string]string{
 		varUserName:              userName,
 		varProjectUser:           user,
 		varProjectRequestingUser: user,
-		varProjectNamespace:      userName + "-" + namespaceType,
-		varNamespaceSuffix:       "-" + namespaceType,
+		varNamespacePrefix:       userName,
 		//varProjectAdminUser:      config.MasterUser,
 	}
 
-	for k, v := range getVariables(config) {
-		if _, exist := vars[k]; !exist {
-			vars[k] = v
+	return merge(vars, getVariables(config))
+}
+
+func merge(target, second map[string]string) map[string]string {
+	for k, v := range second {
+		if _, exist := target[k]; !exist {
+			target[k] = v
 		}
 	}
-
-	var objects Objects
-	for _, template := range tmpls {
-		pt, err := Process(template, vars)
-		if err != nil {
-			return objects, err
-		}
-		objs, err := ParseObjects(pt, userName+"-"+namespaceType)
-		if err != nil {
-			return objects, err
-		}
-		objects = append(objects, objs...)
-	}
-
-	sort.Sort(ByKind(objects))
-	return objects, nil
+	return target
 }
 
 // RetrieveUserName returns a safe namespace basename based on a username
@@ -135,9 +133,9 @@ func getVariables(config *configuration.Data) map[string]string {
 }
 
 // Process takes a K8/Openshift Template as input and resolves the variable expresions
-func Process(template string, variables map[string]string) (string, error) {
+func (t Template)  process(variables map[string]string) (string, error) {
 	reg := regexp.MustCompile(`\${([A-Z_0-9]+)}`)
-	return string(reg.ReplaceAllFunc([]byte(template), func(found []byte) []byte {
+	return string(reg.ReplaceAllFunc([]byte(t.content), func(found []byte) []byte {
 		variableName := toVariableName(string(found))
 		if variable, ok := variables[variableName]; ok {
 			return []byte(variable)
@@ -156,7 +154,7 @@ func replaceTemplateExpression(template string) string {
 }
 
 // ParseObjects return a string yaml and return a array of the objects/items from a Template/List kind
-func ParseObjects(source string, namespace string) (Objects, error) {
+func ParseObjects(source string) (Objects, error) {
 	var template Object
 
 	err := yaml.Unmarshal([]byte(source), &template)
@@ -179,16 +177,6 @@ func ParseObjects(source string, namespace string) (Objects, error) {
 				stringKeys[key.(string)] = value
 			}
 			objs = append(objs, stringKeys)
-		}
-		if namespace != "" {
-			for _, obj := range objs {
-				kind := GetKind(obj)
-				if val, ok := obj[FieldMetadata].(Object); ok && kind != ValKindProjectRequest && kind != ValKindNamespace {
-					if _, ok := val[FieldNamespace]; !ok {
-						val[FieldNamespace] = namespace
-					}
-				}
-			}
 		}
 		return objs, nil
 	}

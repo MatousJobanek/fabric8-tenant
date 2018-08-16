@@ -43,12 +43,12 @@ func (c *TenantController) Clean(ctx *app.CleanTenantContext) error {
 		return err
 	}
 
-	objects, err := template.RetrieveTemplatesObjects(ctx.Type, openshiftUsername, c.config)
+	templates, err := template.RetrieveTemplates(ctx.Type, c.config)
 	if err != nil {
 		return err
 	}
 
-	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ApplyAll(objects).WithDeleteMethod()
+	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ProcessAndApply(templates, openshiftUsername).WithDeleteMethod()
 
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
@@ -65,12 +65,14 @@ func (c *TenantController) Setup(ctx *app.SetupTenantContext) error {
 		return err
 	}
 
-	objects, err := template.RetrieveTemplatesObjects(ctx.Type, openshiftUsername, c.config)
+	templates, err := template.RetrieveTemplates(ctx.Type, c.config)
 	if err != nil {
 		return err
 	}
 
-	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ApplyAll(objects).WithPostMethod()
+	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).
+		ProcessAndApply(templates, openshiftUsername).WithPostMethod()
+
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
@@ -96,12 +98,12 @@ func (c *TenantController) Update(ctx *app.UpdateTenantContext) error {
 		return err
 	}
 
-	objects, err := template.RetrieveTemplatesObjects(ctx.Type, openshiftUsername, c.config)
+	templates, err := template.RetrieveTemplates(ctx.Type, c.config)
 	if err != nil {
 		return err
 	}
 
-	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ApplyAll(objects).WithPatchMethod()
+	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ProcessAndApply(templates, openshiftUsername).WithPatchMethod()
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}

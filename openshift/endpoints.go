@@ -117,7 +117,7 @@ func newResult(response *http.Response, err error) (*Result, error) {
 	}, err
 }
 
-func (e *ObjectEndpoints) ApplyWithMethodCallback(client *Client, object template.Object, action string) (*Result, error) {
+func (e *ObjectEndpoints) Apply(client *Client, object template.Object, action string) (*Result, error) {
 	method, err := e.getMethodDefinition(action, object)
 	if err != nil {
 		return nil, nil

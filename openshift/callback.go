@@ -8,16 +8,16 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/utils"
 )
 
-type BeforeCallback func(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error)
-type AfterCallback func(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error
+type BeforeCallback func(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error)
+type AfterCallback func(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error
 
 // Before callbacks
 
-func GetObjectAndMerge(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error) {
-	result, err := endpoints.ApplyWithMethodCallback(client, object, http.MethodGet)
+func GetObjectAndMerge(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error) {
+	result, err := objEndpoints.Apply(client, object, http.MethodGet)
 	if err != nil {
 		if result.response.StatusCode == http.StatusNotFound {
-			return getMethodAndMarshalObject(endpoints, http.MethodPost, object)
+			return getMethodAndMarshalObject(objEndpoints, http.MethodPost, object)
 		}
 		return nil, nil, err
 	}
@@ -28,8 +28,8 @@ func GetObjectAndMerge(client *Client, object template.Object, endpoints *Object
 	return method, modifiedJson, nil
 }
 
-func getMethodAndMarshalObject(endpoints *ObjectEndpoints,method string, object template.Object) (*MethodDefinition, []byte, error) {
-	post, err := endpoints.getMethodDefinition(method, object)
+func getMethodAndMarshalObject(objEndpoints *ObjectEndpoints,method string, object template.Object) (*MethodDefinition, []byte, error) {
+	post, err := objEndpoints.getMethodDefinition(method, object)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -42,23 +42,23 @@ func getMethodAndMarshalObject(endpoints *ObjectEndpoints,method string, object 
 
 // After callbacks
 
-func WhenConflictThenPatch(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func WhenConflictThenPatch(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	if result.response.StatusCode == http.StatusConflict {
-		return checkHTTPCode(endpoints.ApplyWithMethodCallback(client, object, http.MethodPatch))
+		return checkHTTPCode(objEndpoints.Apply(client, object, http.MethodPatch))
 	}
 	return checkHTTPCode(result, nil)
 }
 
-func IgnoreConflicts(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func IgnoreConflicts(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	if result.response.StatusCode == http.StatusConflict {
 		return nil
 	}
 	return checkHTTPCode(result, nil)
 }
 
-func GetObject(client *Client, object template.Object, endpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func GetObject(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	// todo - shouldn't we check the response codes here as well?
-	_, err := endpoints.ApplyWithMethodCallback(client, object, http.MethodGet)
+	_, err := objEndpoints.Apply(client, object, http.MethodGet)
 	return err
 }
 

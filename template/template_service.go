@@ -11,13 +11,13 @@ import (
 
 const (
 	rawFileFabric8TenantServiceURL = "https://github.com/fabric8-services/fabric8-tenant/blob/%s/%s"
-	templatesDirectory             = "template/assets/"
+	templatesDirectory             = "templateDef/assets/"
 )
 
-type template struct {
-	filename        string
-	namespaceSuffix string
-	defaultParams   map[string]string
+type Template struct {
+	filename      string
+	defaultParams map[string]string
+	content       string
 }
 
 var (
@@ -26,50 +26,46 @@ var (
 	noParams    map[string]string
 )
 
-func newTemplate(filename, namespaceSuffix string, defaultParams map[string]string) template {
-	return template{
-		filename:        filename,
-		defaultParams:   defaultParams,
-		namespaceSuffix: namespaceSuffix,
+func newTemplateDef(filename string, defaultParams map[string]string) Template {
+	return Template{
+		filename:      filename,
+		defaultParams: defaultParams,
 	}
 }
 
-var templateNames = map[string]template{
-	"run":     newTemplate("fabric8-tenant-environment.yml", "-run", runParams),
-	"stage":   newTemplate("fabric8-tenant-environment.yml", "-stage", stageParams),
-	"che":     newTemplate("fabric8-tenant-che.yml", "-che", noParams),
-	"che-mt":  newTemplate("fabric8-tenant-che-mt.yml", "-che", noParams),
-	"jenkins": newTemplate("fabric8-tenant-jenkins.yml", "-jenkins", noParams),
+var templateNames = map[string]Template{
+	"run":     newTemplateDef("fabric8-tenant-environment.yml", runParams),
+	"stage":   newTemplateDef("fabric8-tenant-environment.yml", stageParams),
+	"che":     newTemplateDef("fabric8-tenant-che.yml", noParams),
+	"che-mt":  newTemplateDef("fabric8-tenant-che-mt.yml", noParams),
+	"jenkins": newTemplateDef("fabric8-tenant-jenkins.yml", noParams),
 }
 
-func RetrieveTemplatesObjects(namespace *string, username string, config *configuration.Data) (Objects, error) {
-	templates := make([]string, 0)
+func RetrieveTemplates(namespace *string, config *configuration.Data) ([]Template, error) {
+	templates := make([]Template, 0)
 
 	if utils.IsEmpty(namespace) {
 		for _, template := range templateNames {
-			content, err := retrieveTemplate(template, config)
+			err := retrieveTemplate(&template, config)
 			if err != nil {
 				return nil, err
 			}
-			templates = append(templates, content)
+			templates = append(templates, template)
 		}
 
 	} else {
-		content, err := retrieveTemplate(templateNames[*namespace], config)
+		template := templateNames[*namespace]
+		err := retrieveTemplate(&template, config)
 		if err != nil {
 			return nil, err
 		}
-		templates = append(templates, content)
+		templates = append(templates, template)
 	}
 
-	objects, err := ProcessTemplates(username, *namespace, config, templates...)
-	if err != nil {
-		return objects, err
-	}
-	return objects, nil
+	return templates, nil
 }
 
-func retrieveTemplate(template template, config *configuration.Data) (string, error) {
+func retrieveTemplate(template *Template, config *configuration.Data) error {
 	var (
 		content []byte
 		err     error
@@ -80,8 +76,6 @@ func retrieveTemplate(template template, config *configuration.Data) (string, er
 	} else {
 		content, err = assets.Asset(template.filename)
 	}
-	if err != nil {
-		return "", err
-	}
-	return string(content), nil
+	template.content = string(content)
+	return err
 }
