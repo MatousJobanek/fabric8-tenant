@@ -63,6 +63,9 @@ func GetObject(client *Client, object template.Object, objEndpoints *ObjectEndpo
 }
 
 func GetObjectExpects404(client *Client, object template.Object, endpoint *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+	if result.response.StatusCode == http.StatusNotFound {
+		return nil
+	}
 	err := checkHTTPCode(result, nil)
 	if err != nil {
 		return err
@@ -75,7 +78,7 @@ func GetObjectExpects404(client *Client, object template.Object, endpoint *Objec
 	if getResponse.StatusCode != http.StatusNotFound {
 		err = checkHTTPCode(newResult(getResponse, err))
 		if err == nil {
-			return fmt.Errorf("obbject %s wasn't removed", object)
+			return fmt.Errorf("object %s wasn't removed", object)
 		}
 	}
 	return err

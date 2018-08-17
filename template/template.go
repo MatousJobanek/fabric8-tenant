@@ -78,7 +78,6 @@ func (t Template) Process(vars map[string]string) (Objects, error) {
 	var objects Objects
 	templateVars := merge(vars, t.defaultParams)
 	pt, err := t.process(templateVars)
-	//fmt.Println(pt)
 	if err != nil {
 		return objects, err
 	}

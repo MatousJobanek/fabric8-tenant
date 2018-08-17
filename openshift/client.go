@@ -14,8 +14,6 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	"github.com/fabric8-services/fabric8-tenant/log"
 	"gopkg.in/yaml.v2"
-	"sync"
-	"sort"
 )
 
 type Client struct {
@@ -81,73 +79,23 @@ func (b *WithClientBuilder) ProcessAndApply(template []template.Template, user s
 }
 
 func (b *ClientWithObjectsBuilder) WithPostMethod() error {
-	return processApplyAll(b, http.MethodPost)
+	return processAndApplyAll(b, http.MethodPost)
 }
 
 func (b *ClientWithObjectsBuilder) WithPatchMethod() error {
-	return processApplyAll(b, http.MethodPatch, )
+	return processAndApplyAll(b, http.MethodPatch, )
 }
 
 func (b *ClientWithObjectsBuilder) WithPutMethod() error {
-	return processApplyAll(b, http.MethodPut)
+	return processAndApplyAll(b, http.MethodPut)
 }
 
 func (b *ClientWithObjectsBuilder) WithGetMethod() error {
-	return processApplyAll(b, http.MethodGet)
+	return processAndApplyAll(b, http.MethodGet)
 }
 
 func (b *ClientWithObjectsBuilder) WithDeleteMethod() error {
-	return processApplyAll(b, http.MethodDelete)
-}
-
-func processApplyAll(builder *ClientWithObjectsBuilder, action string) error {
-	var templatesWait sync.WaitGroup
-	templatesWait.Add(len(builder.templates))
-	vars := template.CollectVars(builder.user, builder.config)
-
-	for _, tmpl := range builder.templates {
-		go processAndApply(&templatesWait, tmpl, vars, *builder.client, action)
-	}
-	templatesWait.Wait()
-	return nil
-}
-
-func processAndApply(templatesWait *sync.WaitGroup, tmpl template.Template, vars map[string]string, client Client, action string) {
-	defer templatesWait.Done()
-	objects, err := tmpl.Process(vars)
-	if err != nil {
-		client.Log.Error(err)
-		return
-	}
-	if action == http.MethodDelete {
-		sort.Reverse(template.ByKind(objects))
-	} else {
-		sort.Sort(template.ByKind(objects))
-	}
-
-	var objectsWait sync.WaitGroup
-	objectsWait.Add(len(objects))
-
-	for _, object := range objects {
-		go apply(&objectsWait, client, action, object)
-	}
-	objectsWait.Wait()
-}
-
-func apply(objectsWait *sync.WaitGroup, client Client, action string, object template.Object) {
-	defer objectsWait.Done()
-
-	objectEndpoint, found := objectEndpoints[template.GetKind(object)]
-	if !found {
-		client.Log.Error("there is no supported endpoint for the object %s", template.GetKind(object))
-		return
-	}
-
-	_, err := objectEndpoint.Apply(&client, object, action)
-	if err != nil {
-		client.Log.Error(err)
-		return
-	}
+	return processAndApplyAll(b, http.MethodDelete)
 }
 
 type urlCreator func(urlTemplate string) func() (URL string, err error)

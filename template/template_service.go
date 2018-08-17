@@ -15,7 +15,7 @@ const (
 )
 
 type Template struct {
-	filename      string
+	Filename      string
 	defaultParams map[string]string
 	content       string
 }
@@ -28,7 +28,7 @@ var (
 
 func newTemplateDef(filename string, defaultParams map[string]string) Template {
 	return Template{
-		filename:      filename,
+		Filename:      filename,
 		defaultParams: defaultParams,
 	}
 }
@@ -36,8 +36,8 @@ func newTemplateDef(filename string, defaultParams map[string]string) Template {
 var templateNames = map[string]Template{
 	"run":     newTemplateDef("fabric8-tenant-environment.yml", runParams),
 	"stage":   newTemplateDef("fabric8-tenant-environment.yml", stageParams),
-	"che":     newTemplateDef("fabric8-tenant-che.yml", noParams),
-	"che-mt":  newTemplateDef("fabric8-tenant-che-mt.yml", noParams),
+	"che":     newTemplateDef("fabric8-tenant-che-mt.yml", noParams),
+	//"che":  newTemplateDef("fabric8-tenant-che.yml", noParams),
 	"jenkins": newTemplateDef("fabric8-tenant-jenkins.yml", noParams),
 }
 
@@ -71,10 +71,10 @@ func retrieveTemplate(template *Template, config *configuration.Data) error {
 		err     error
 	)
 	if config.GetFabric8TenantServiceRepoSha() != "" {
-		pathToTemplate := templatesDirectory + template.filename
+		pathToTemplate := templatesDirectory + template.Filename
 		content, err = utils.DownloadFile(fmt.Sprintf(rawFileFabric8TenantServiceURL, config.GetFabric8TenantServiceRepoSha(), pathToTemplate))
 	} else {
-		content, err = assets.Asset(template.filename)
+		content, err = assets.Asset(template.Filename)
 	}
 	template.content = string(content)
 	return err
