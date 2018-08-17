@@ -11,20 +11,27 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/configuration"
 	goaclient "github.com/goadesign/goa/client"
 	"github.com/satori/go.uuid"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/fabric8-services/fabric8-tenant/jsonapi"
+	commonErrors "github.com/fabric8-services/fabric8-common/errors"
+	goajwt "github.com/goadesign/goa/middleware/security/jwt"
+	"github.com/fabric8-services/fabric8-tenant/log"
 )
 
 type Service struct {
 	Config        *configuration.Data
 	ClientOptions []commonConfig.HTTPClientOption
 	SaToken       string
+	log           log.Logger
 }
 
 // NewResolve creates a Resolver that rely on the Auth service to retrieve tokens
-func NewAuthService(config *configuration.Data, options ...commonConfig.HTTPClientOption) (*Service, error) {
+func NewAuthService(config *configuration.Data, log log.Logger, options ...commonConfig.HTTPClientOption) (*Service, error) {
 	c := &Service{
 		Config:        config,
 		ClientOptions: options,
 		SaToken:       "eyJhbGciOiJSUzI1NiIsImtpZCI6IjBsTDB2WHM5WVJWcVpNb3d5dzh1TkxSX3lyMGlGYW96ZFFrOXJ6cTJPVlUiLCJ0eXAiOiJKV1QifQ.eyJhY3IiOiIwIiwiYWxsb3dlZC1vcmlnaW5zIjpbImh0dHBzOi8vYXV0aC5vcGVuc2hpZnQuaW8iLCJodHRwczovL29wZW5zaGlmdC5pbyJdLCJhcHByb3ZlZCI6dHJ1ZSwiYXVkIjoiZmFicmljOC1vbmxpbmUtcGxhdGZvcm0iLCJhdXRoX3RpbWUiOjE1MzM4OTc2NjQsImF6cCI6ImZhYnJpYzgtb25saW5lLXBsYXRmb3JtIiwiZW1haWwiOiJtam9iYW5la0ByZWRoYXQuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImV4cCI6MTUzNjQ4OTY2NCwiZmFtaWx5X25hbWUiOiJKb2JhbmVrIiwiZ2l2ZW5fbmFtZSI6Ik1hdG91cyIsImlhdCI6MTUzMzg5NzY2NCwiaXNzIjoiaHR0cHM6Ly9zc28ub3BlbnNoaWZ0LmlvL2F1dGgvcmVhbG1zL2ZhYnJpYzgiLCJqdGkiOiI1ZGYzMWNmMi00MzE4LTRlYzQtOTBiNy1iMTk2NDgxNWY0NTkiLCJuYW1lIjoiTWF0b3VzIEpvYmFuZWsiLCJuYmYiOjAsInByZWZlcnJlZF91c2VybmFtZSI6Im1qb2JhbmVrIiwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19LCJicm9rZXIiOnsicm9sZXMiOlsicmVhZC10b2tlbiJdfX0sInNlc3Npb25fc3RhdGUiOiIxMjQ2NjI0MC02ZTk2LTRhMTktOGE5Mi0wODQwMTZjYTQwOGQiLCJzdWIiOiI3NDI5M2RlNy1hNzk0LTQ1NTEtOGNlYy02N2U4OTkzMmU1YTYiLCJ0eXAiOiJCZWFyZXIifQ.AazwzRFwblWUfTIo2GJTHGtAPBod2AMMzepRfN5Lxw859V_zM65iHPhP7JEex3_G5J94XanRuNTtl-WpNt-yq--nfJjnpUeUAq2TTNtX1Kv_q-ZOBp1ZzKkWVob1tMQhQb6An5APW7mv1hlxb-SJsuOM3kARxOri4J6OJKyo0t3LIirTGsaU1pVT2FH3eIlU1QZVsyZHcYlrkwJYN2QbN_0YeE7LkscebRc8e2TcqLMh2M9bCjjs5urL-tpDqAgQ9fW4D7NWDv48_0rTPEDFrEmnyQdnrmsyPdrrnKh733l_rBZM5TMSymX_jOpBhRCaBLiTWElyxv6jE8mMYG3N3A",
+		log:           log,
 	}
 	//saToken, err := c.GetOAuthToken(context.Background())
 	//if err != nil {
@@ -32,6 +39,46 @@ func NewAuthService(config *configuration.Data, options ...commonConfig.HTTPClie
 	//}
 	//c.SaToken = *saToken
 	return c, nil
+}
+
+type User struct {
+	UserData           *authclient.UserDataAttributes
+	OpenshiftUserName  string
+	OpenshiftUserToken string
+}
+
+func (s *Service) NewUser(ctx context.Context) (*User, error) {
+	userToken := goajwt.ContextJWT(ctx)
+	if userToken == nil {
+		return nil, jsonapi.JSONErrorResponse(ctx, commonErrors.NewUnauthorizedError("Missing JWT token"))
+	}
+
+	// fetch the cluster the user belongs to
+	userData, err := s.GetAuthUserData(ctx, userToken)
+	if err != nil {
+		return nil, jsonapi.JSONErrorResponse(ctx, err)
+	}
+
+	if userData.Cluster == nil {
+		s.log.Error(ctx, nil, "no cluster defined for tenant")
+		return nil, jsonapi.JSONErrorResponse(ctx, commonErrors.NewInternalError(ctx, fmt.Errorf("unable to provision to undefined cluster")))
+	}
+
+	// fetch the users cluster token
+	openshiftUserName, openshiftUserToken, err := s.ResolveUserToken(ctx, *userData.Cluster, userToken.Raw)
+	if err != nil {
+		s.log.Error(ctx, map[string]interface{}{
+			"err":         err,
+			"cluster_url": *userData.Cluster,
+		}, "unable to fetch tenant token from auth")
+		return nil, jsonapi.JSONErrorResponse(ctx, commonErrors.NewUnauthorizedError("Could not resolve user token"))
+	}
+
+	return &User{
+		UserData:           userData,
+		OpenshiftUserName:  openshiftUserName,
+		OpenshiftUserToken: openshiftUserToken,
+	}, nil
 }
 
 func (s *Service) GetAuthURL() string {
@@ -151,7 +198,9 @@ func (s *Service) ResolveTargetToken(ctx context.Context, target, token string, 
 	return externalToken.Username, t, err
 }
 
-func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*authclient.UserDataAttributes, error) {
+func (s *Service) GetAuthUserData(ctx context.Context, userToken *jwt.Token) (*authclient.UserDataAttributes, error) {
+	id := subject(userToken)
+
 	c, err := s.NewSaClient()
 	if err != nil {
 		return nil, err
@@ -174,4 +223,15 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*authclient.UserDa
 	}
 
 	return user.Data.Attributes, nil
+}
+
+func subject(token *jwt.Token) uuid.UUID {
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		id, err := uuid.FromString(claims["sub"].(string))
+		if err != nil {
+			return uuid.UUID{}
+		}
+		return id
+	}
+	return uuid.UUID{}
 }

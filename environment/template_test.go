@@ -1,10 +1,10 @@
-package template_test
+package environment_test
 
 import (
 	"testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/fabric8-services/fabric8-tenant/template"
+	"github.com/fabric8-services/fabric8-tenant/environment"
 	"regexp"
 	"github.com/fabric8-services/fabric8-tenant/test/doubles"
 )
@@ -124,7 +124,7 @@ objects:
 func TestSort(t *testing.T) {
 	data := testdoubles.LoadTestConfig(t)
 
-	objects, err := template.ProcessTemplate("developer", data, sortTemplate)
+	objects, err := environment.ProcessTemplate("developer", data, sortTemplate)
 	require.NoError(t, err)
 
 	assert.Equal(t, "ProjectRequest", kind(objects[0]))
@@ -134,7 +134,7 @@ func TestSort(t *testing.T) {
 }
 
 func TestParseNamespace(t *testing.T) {
-	objects, err := template.ProcessTemplate("developer", testdoubles.LoadTestConfig(t), parseNamespaceTemplate)
+	objects, err := environment.ProcessTemplate("developer", testdoubles.LoadTestConfig(t), parseNamespaceTemplate)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Namespace", kind(objects[0]))
@@ -163,8 +163,8 @@ func TestCreateUsername(t *testing.T) {
 }
 
 func assertName(t *testing.T, expected, username string) {
-	assert.Regexp(t, dnsRegExp, template.RetrieveUserName(username))
-	assert.Equal(t, expected, template.RetrieveUserName(username))
+	assert.Regexp(t, dnsRegExp, environment.RetrieveUserName(username))
+	assert.Equal(t, expected, environment.RetrieveUserName(username))
 }
 
 func TestProcess(t *testing.T) {
@@ -174,7 +174,7 @@ func TestProcess(t *testing.T) {
 		"PROJECT_REQUESTING_USER": "Aslak-User",
 		"PROJECT_NAME":            "Aslak-Test",
 	}
-	processed, err := template.Process(processTemplate, vars)
+	processed, err := environment.Process(processTemplate, vars)
 	require.Nil(t, err, "error processing templateDef")
 
 	t.Run("verify no templateDef markers in output", func(t *testing.T) {
@@ -198,7 +198,7 @@ func TestProcess(t *testing.T) {
 func TestProcessVariables(t *testing.T) {
 	vars := map[string]string{}
 
-	processed, err := template.Process(processTemplateVariables, vars)
+	processed, err := environment.Process(processTemplateVariables, vars)
 	require.Nil(t, err, "error processing templateDef")
 
 	t.Run("Verify non replaced markers are left", func(t *testing.T) {

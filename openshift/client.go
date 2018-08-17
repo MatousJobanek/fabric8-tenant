@@ -1,61 +1,34 @@
 package openshift
 
 import (
+	"github.com/fabric8-services/fabric8-tenant/environment"
 	"net/http"
-	"bytes"
-	"net/http/httputil"
 	"fmt"
-	"crypto/tls"
-	"github.com/fabric8-services/fabric8-tenant/configuration"
-	"github.com/fabric8-services/fabric8-tenant/template"
+	"github.com/fabric8-services/fabric8-tenant/log"
+	"net/http/httputil"
+	"github.com/fabric8-services/fabric8-tenant/utils"
+	"bytes"
 	"strings"
 
 	tmpl "html/template"
-	"github.com/fabric8-services/fabric8-tenant/utils"
-	"github.com/fabric8-services/fabric8-tenant/log"
+
 	"gopkg.in/yaml.v2"
 )
 
 type Client struct {
-	client        *http.Client
-	MasterURL     string
-	Token         string
-	HTTPTransport http.RoundTripper
-	Log           log.Logger
+	client    *http.Client
+	Log       log.Logger
+	MasterURL string
+	Token     string
 }
 
-type WithClientBuilder struct {
-	Client *Client
-	config *configuration.Data
-}
-
-type ClientWithObjectsBuilder struct {
-	client    *Client
-	templates []template.Template
-	user      string
-	config    *configuration.Data
-}
-
-func NewClient(log log.Logger, clusterURL, token string, config *configuration.Data) *WithClientBuilder {
-	httpTransport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: config.APIServerInsecureSkipTLSVerify(),
-		},
+func newClient(log log.Logger, httpTransport http.RoundTripper, masterURL string, token string) *Client {
+	return &Client{
+		client:    createHTTPClient(httpTransport),
+		Log:       log,
+		MasterURL: masterURL,
+		Token:     token,
 	}
-
-	return NewClientWithTransport(log, clusterURL, token, config, httpTransport)
-}
-
-func NewClientWithTransport(log log.Logger, clusterURL, token string, config *configuration.Data, httpTransport http.RoundTripper) *WithClientBuilder {
-	return &WithClientBuilder{
-		Client: &Client{
-			client:        createHTTPClient(httpTransport),
-			MasterURL:     clusterURL,
-			Token:         token,
-			HTTPTransport: httpTransport,
-			Log:           log,
-		},
-		config: config}
 }
 
 // CreateHTTPClient returns an HTTP client with the options settings,
@@ -69,42 +42,13 @@ func createHTTPClient(HTTPTransport http.RoundTripper) *http.Client {
 	return http.DefaultClient
 }
 
-func (b *WithClientBuilder) ProcessAndApply(template []template.Template, user string) *ClientWithObjectsBuilder {
-	return &ClientWithObjectsBuilder{
-		client:    b.Client,
-		templates: template,
-		user:      user,
-		config:    b.config,
-	}
-}
-
-func (b *ClientWithObjectsBuilder) WithPostMethod() error {
-	return processAndApplyAll(b, http.MethodPost)
-}
-
-func (b *ClientWithObjectsBuilder) WithPatchMethod() error {
-	return processAndApplyAll(b, http.MethodPatch, )
-}
-
-func (b *ClientWithObjectsBuilder) WithPutMethod() error {
-	return processAndApplyAll(b, http.MethodPut)
-}
-
-func (b *ClientWithObjectsBuilder) WithGetMethod() error {
-	return processAndApplyAll(b, http.MethodGet)
-}
-
-func (b *ClientWithObjectsBuilder) WithDeleteMethod() error {
-	return processAndApplyAll(b, http.MethodDelete)
-}
-
 type urlCreator func(urlTemplate string) func() (URL string, err error)
 
 type RequestCreator struct {
 	creator func(urlCreator urlCreator, body []byte) (*http.Request, error)
 }
 
-func (c *Client) MarshalAndDo(requestCreator RequestCreator, object template.Object) (*http.Response, error) {
+func (c *Client) MarshalAndDo(requestCreator RequestCreator, object environment.Object) (*http.Response, error) {
 	body, err := yaml.Marshal(object)
 	if err != nil {
 		return nil, err
@@ -112,7 +56,7 @@ func (c *Client) MarshalAndDo(requestCreator RequestCreator, object template.Obj
 	return c.Do(requestCreator, object, body)
 }
 
-func (c *Client) Do(requestCreator RequestCreator, object template.Object, body []byte) (*http.Response, error) {
+func (c *Client) Do(requestCreator RequestCreator, object environment.Object, body []byte) (*http.Response, error) {
 	req, err := requestCreator.createRequestFor(c.MasterURL, object, body)
 	if err != nil {
 		return nil, err
@@ -138,7 +82,7 @@ func (c *Client) Do(requestCreator RequestCreator, object template.Object, body 
 	return resp, err
 }
 
-func (c *RequestCreator) createRequestFor(masterURL string, object template.Object, body []byte) (*http.Request, error) {
+func (c *RequestCreator) createRequestFor(masterURL string, object environment.Object, body []byte) (*http.Request, error) {
 	urlCreator := func(urlTemplate string) func() (string, error) {
 		return func() (string, error) {
 			return createURL(masterURL, urlTemplate, object)
@@ -148,7 +92,7 @@ func (c *RequestCreator) createRequestFor(masterURL string, object template.Obje
 	return c.creator(urlCreator, body)
 }
 
-func createURL(hostURL, urlTemplate string, object template.Object) (string, error) {
+func createURL(hostURL, urlTemplate string, object environment.Object) (string, error) {
 	target, err := tmpl.New("url").Parse(urlTemplate)
 	if err != nil {
 		return "", err
@@ -168,8 +112,6 @@ func createURL(hostURL, urlTemplate string, object template.Object) (string, err
 
 func newDefaultRequest(action string, createURL func() (string, error), body []byte) (*http.Request, error) {
 	url, err := createURL()
-	//fmt.Println(action)
-	//fmt.Println(url)
 	if url == "" {
 		return nil, nil
 	}

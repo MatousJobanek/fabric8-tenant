@@ -2,7 +2,7 @@ package openshift
 
 import (
 	"fmt"
-	"github.com/fabric8-services/fabric8-tenant/template"
+	"github.com/fabric8-services/fabric8-tenant/environment"
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	"net/http"
 )
@@ -13,67 +13,67 @@ type ObjectEndpoints struct {
 
 var (
 	objectEndpoints = map[string]*ObjectEndpoints{
-		template.ValKindNamespace: endpoints(
+		environment.ValKindNamespace: endpoints(
 			endpoint(`/api/v1/namespaces`, POST(IgnoreConflicts)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindProject: endpoints(
+		environment.ValKindProject: endpoints(
 			endpoint(`/oapi/v1/projects`, POST(WhenConflictThenPatch)),
 			endpoint(`/oapi/v1/projects/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindProjectRequest: endpoints(
+		environment.ValKindProjectRequest: endpoints(
 			endpoint(`/oapi/v1/projectrequests`, POST(IgnoreConflicts)),
 			endpoint(`/oapi/v1/projects/{{ index . "metadata" "name"}}`, GET(), DELETE())),
 
-		template.ValKindRoleBinding: endpoints(
+		environment.ValKindRoleBinding: endpoints(
 			endpoint(`/oapi/v1/namespaces/{{ index . "metadata" "namespace"}}/rolebindings`, POST(WhenConflictThenPatch)),
 			endpoint(`/oapi/v1/namespaces/{{ index . "metadata" "namespace"}}/rolebindings/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindRoleBindingRestriction: endpoints(
+		environment.ValKindRoleBindingRestriction: endpoints(
 			endpoint(`/oapi/v1/namespaces/{{ index . "metadata" "namespace"}}/rolebindingrestrictions`, POST(WhenConflictThenPatch)),
 			endpoint(`/oapi/v1/namespaces/{{ index . "metadata" "namespace"}}/rolebindingrestrictions/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindRoute: endpoints(
+		environment.ValKindRoute: endpoints(
 			endpoint(`/oapi/v1/namespaces/{{ index . "metadata" "namespace"}}/routes`, POST(WhenConflictThenPatch)),
 			endpoint(`/oapi/v1/namespaces/{{ index . "metadata" "namespace"}}/routes/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindDeployment: endpoints(
+		environment.ValKindDeployment: endpoints(
 			endpoint(`/apis/extensions/v1beta1/namespaces/{{ index . "metadata" "namespace"}}/deployments`, POST(WhenConflictThenPatch)),
 			endpoint(`/apis/extensions/v1beta1/namespaces/{{ index . "metadata" "namespace"}}/deployments/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindDeploymentConfig: endpoints(
+		environment.ValKindDeploymentConfig: endpoints(
 			endpoint(`/apis/apps.openshift.io/v1/namespaces/{{ index . "metadata" "namespace"}}/deploymentconfigs`, POST(WhenConflictThenPatch)),
 			endpoint(`/apis/apps.openshift.io/v1/namespaces/{{ index . "metadata" "namespace"}}/deploymentconfigs/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindPersistenceVolumeClaim: endpoints(
+		environment.ValKindPersistenceVolumeClaim: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/persistentvolumeclaims`, POST(IgnoreConflicts)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/persistentvolumeclaims/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindService: endpoints(
+		environment.ValKindService: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/services`, POST(WhenConflictThenPatch)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/services/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindSecret: endpoints(
+		environment.ValKindSecret: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/secrets`, POST(WhenConflictThenPatch)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/secrets/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindServiceAccount: endpoints(
+		environment.ValKindServiceAccount: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/serviceaccounts`, POST(IgnoreConflicts)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/serviceaccounts/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindConfigMap: endpoints(
+		environment.ValKindConfigMap: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/configmaps`, POST(WhenConflictThenPatch)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/configmaps/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindResourceQuota: endpoints(
+		environment.ValKindResourceQuota: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/resourcequotas`, POST(WhenConflictThenPatch)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/resourcequotas/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindLimitRange: endpoints(
+		environment.ValKindLimitRange: endpoints(
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/limitranges`, POST(WhenConflictThenPatch)),
 			endpoint(`/api/v1/namespaces/{{ index . "metadata" "namespace"}}/limitranges/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 
-		template.ValKindJob: endpoints(
+		environment.ValKindJob: endpoints(
 			endpoint(`/apis/batch/v1/namespaces/{{ index . "metadata" "namespace"}}/jobs`, POST(WhenConflictThenPatch)),
 			endpoint(`/apis/batch/v1/namespaces/{{ index . "metadata" "namespace"}}/jobs/{{ index . "metadata" "name"}}`, PATCH(), GET(), DELETE())),
 	}
@@ -107,7 +107,7 @@ func endpoints(endpoints ...func(methods map[string]*MethodDefinition)) *ObjectE
 
 type Result struct {
 	response *http.Response
-	body       []byte
+	body     []byte
 }
 
 func newResult(response *http.Response, err error) (*Result, error) {
@@ -117,7 +117,7 @@ func newResult(response *http.Response, err error) (*Result, error) {
 	}, err
 }
 
-func (e *ObjectEndpoints) Apply(client *Client, object template.Object, action string) (*Result, error) {
+func (e *ObjectEndpoints) Apply(client *Client, object environment.Object, action string) (*Result, error) {
 	method, err := e.getMethodDefinition(action, object)
 	if err != nil {
 		return nil, nil
@@ -142,9 +142,8 @@ func (e *ObjectEndpoints) Apply(client *Client, object template.Object, action s
 	if err != nil {
 		return result, err
 	}
-
 	if len(method.afterCallbacks) == 0 {
-		return result, checkHTTPCode(result, err)
+		return result, checkHTTPCode(result, nil)
 	} else {
 		for _, afterCallback := range method.afterCallbacks {
 			err := afterCallback(client, object, e, method, result)
@@ -156,10 +155,11 @@ func (e *ObjectEndpoints) Apply(client *Client, object template.Object, action s
 	}
 }
 
-func (e *ObjectEndpoints) getMethodDefinition(method string, object template.Object) (*MethodDefinition, error) {
+
+func (e *ObjectEndpoints) getMethodDefinition(method string, object environment.Object) (*MethodDefinition, error) {
 	methodDef, found := e.methods[method]
 	if !found {
-		return nil, fmt.Errorf("method definition %s for %s not supported", method, template.GetKind(object))
+		return nil, fmt.Errorf("method definition %s for %s not supported", method, environment.GetKind(object))
 	}
 	return methodDef, nil
 }

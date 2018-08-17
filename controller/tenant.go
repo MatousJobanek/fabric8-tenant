@@ -3,17 +3,18 @@ package controller
 import (
 	"github.com/fabric8-services/fabric8-tenant/app"
 	"github.com/goadesign/goa"
-	goajwt "github.com/goadesign/goa/middleware/security/jwt"
 	"github.com/fabric8-services/fabric8-tenant/log"
 	"github.com/fabric8-services/fabric8-tenant/jsonapi"
 	"github.com/fabric8-services/fabric8-common/errors"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
 	"github.com/fabric8-services/fabric8-tenant/openshift"
-	"github.com/fabric8-services/fabric8-tenant/template"
+	"github.com/fabric8-services/fabric8-tenant/environment"
 	"github.com/fabric8-services/fabric8-tenant/cluster"
 	"github.com/fabric8-services/fabric8-tenant/auth"
-	"fmt"
+	"github.com/fabric8-services/fabric8-tenant/utils"
 	"context"
+	"github.com/satori/go.uuid"
+	"fmt"
 )
 
 // TenantController implements the tenant resource.
@@ -38,17 +39,11 @@ func NewTenantController(service *goa.Service, clusterService cluster.Service, a
 
 // Clean runs the clean action.
 func (c *TenantController) Clean(ctx *app.CleanTenantContext) error {
-	cluster, openshiftUsername, err := c.parseTokens(ctx)
+	service, err := c.newOpenshiftService(ctx, ctx.Type, ctx.Space)
 	if err != nil {
-		return err
+		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
-
-	templates, err := template.RetrieveTemplates(ctx.Type, c.config)
-	if err != nil {
-		return err
-	}
-
-	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ProcessAndApply(templates, openshiftUsername).WithDeleteMethod()
+	service.WithDeleteMethod()
 
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
@@ -59,19 +54,11 @@ func (c *TenantController) Clean(ctx *app.CleanTenantContext) error {
 
 // Setup runs the setup action.
 func (c *TenantController) Setup(ctx *app.SetupTenantContext) error {
-
-	cluster, openshiftUsername, err := c.parseTokens(ctx)
+	service, err := c.newOpenshiftService(ctx, ctx.Type, ctx.Space)
 	if err != nil {
-		return err
+		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
-
-	templates, err := template.RetrieveTemplates(ctx.Type, c.config)
-	if err != nil {
-		return err
-	}
-
-	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).
-		ProcessAndApply(templates, openshiftUsername).WithPostMethod()
+	service.WithPostMethod()
 
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
@@ -93,17 +80,11 @@ func (c *TenantController) Show(ctx *app.ShowTenantContext) error {
 
 // Update runs the update action.
 func (c *TenantController) Update(ctx *app.UpdateTenantContext) error {
-	cluster, openshiftUsername, err := c.parseTokens(ctx)
+	service, err := c.newOpenshiftService(ctx, ctx.Type, ctx.Space)
 	if err != nil {
-		return err
+		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
-
-	templates, err := template.RetrieveTemplates(ctx.Type, c.config)
-	if err != nil {
-		return err
-	}
-
-	err = openshift.NewClient(c.log, cluster.APIURL, cluster.Token, c.config).ProcessAndApply(templates, openshiftUsername).WithPatchMethod()
+	service.WithPatchMethod()
 	if err != nil {
 		return jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
@@ -111,46 +92,35 @@ func (c *TenantController) Update(ctx *app.UpdateTenantContext) error {
 	return nil
 }
 
-func (c *TenantController) parseTokens(ctx context.Context) (*cluster.Cluster, string, error) {
-	userToken := goajwt.ContextJWT(ctx)
-	if userToken == nil {
-		return nil, "", jsonapi.JSONErrorResponse(ctx, errors.NewUnauthorizedError("Missing JWT token"))
-	}
-	ttoken := &auth.TenantToken{Token: userToken}
-
-	// fetch the cluster the user belongs to
-	user, err := c.authClientService.GetUser(ctx, ttoken.Subject())
+func (c *TenantController) newOpenshiftService(ctx context.Context, nsType *string, space *uuid.UUID) (*openshift.Service, error) {
+	// user
+	user, err := c.authClientService.NewUser(ctx)
 	if err != nil {
-		return nil, "", jsonapi.JSONErrorResponse(ctx, err)
+		return nil, err
 	}
 
-	if user.Cluster == nil {
-		c.log.Error(ctx, nil, "no cluster defined for tenant")
-		return nil, "", jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, fmt.Errorf("unable to provision to undefined cluster")))
+	// ns types
+	nsTypes := environment.DefaultNamespaces
+	fmt.Println(nsTypes)
+	if !utils.IsEmpty(nsType) {
+		fmt.Println("not nil", nsType)
+		nsTypes = []string{*nsType}
 	}
 
-	// fetch the users cluster token
-	openshiftUsername, openshiftUserToken, err := c.authClientService.ResolveUserToken(ctx, *user.Cluster, userToken.Raw)
+	// cluster
+	user.UserData.Cluster = utils.String("https://192.168.42.241:8443")
+	var clusterMapping map[string]*cluster.Cluster
+
+	if space != nil && auth.IsCollaborator(space, user.UserData) {
+		clusterMapping, err = c.clusterService.GetClusterNsMapping(space)
+	} else {
+		clusterMapping, err = c.clusterService.GetUserClusterNsMapping(ctx, user)
+	}
 	if err != nil {
-		c.log.Error(ctx, map[string]interface{}{
-			"err":         err,
-			"cluster_url": *user.Cluster,
-		}, "unable to fetch tenant token from auth")
-		return nil, "", jsonapi.JSONErrorResponse(ctx, errors.NewUnauthorizedError("Could not resolve user token"))
+		return nil, jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
 	}
 
-	// fetch the cluster info
-	cluster, err := c.clusterService.GetCluster(ctx, *user.Cluster)
-	if err != nil {
-		c.log.Error(ctx, map[string]interface{}{
-			"err":         err,
-			"cluster_url": *user.Cluster,
-		}, "unable to fetch cluster")
-		return nil, "", jsonapi.JSONErrorResponse(ctx, errors.NewInternalError(ctx, err))
-	}
-	// todo
-	cluster.Token = openshiftUserToken
-	cluster.Token = "SfxTgps5VblOEd4MPIWwh4ulcFDznvKkljJ0ViEUpSo"
-
-	return cluster, openshiftUsername, nil
+	// service
+	serviceContext := openshift.NewServiceContext(c.config, clusterMapping, user, space)
+	return openshift.NewService(c.log, serviceContext).ApplyAll(nsTypes), nil
 }

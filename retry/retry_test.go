@@ -1,4 +1,4 @@
-package retry_test
+package client_test
 
 import (
 	"errors"
@@ -19,7 +19,7 @@ func TestAccumulateErrorsWhenAllFailed(t *testing.T) {
 	}
 
 	// when
-	err := retry.Do(maxRetries, 0, toRetry)
+	err := client.Do(maxRetries, 0, toRetry)
 
 	// then
 	Expect(err).To(HaveLen(maxRetries))
@@ -36,7 +36,7 @@ func TestRetryExecuteOnce(t *testing.T) {
 	}
 
 	// when
-	err := retry.Do(maxRetries, 0, toRetry)
+	err := client.Do(maxRetries, 0, toRetry)
 
 	// then
 	Expect(err).To(HaveLen(1))
@@ -55,7 +55,7 @@ func TestStopRetryingWhenSuccessful(t *testing.T) {
 	}
 
 	// when
-	err := retry.Do(10, time.Millisecond * 50, toRetry)
+	err := client.Do(10, time.Millisecond * 50, toRetry)
 
 	// then
 	Expect(err).To(BeEmpty())

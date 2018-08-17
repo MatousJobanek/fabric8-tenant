@@ -1,19 +1,19 @@
 package openshift
 
 import (
-	"github.com/fabric8-services/fabric8-tenant/template"
+	"github.com/fabric8-services/fabric8-tenant/environment"
 	"net/http"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"github.com/fabric8-services/fabric8-tenant/utils"
 )
 
-type BeforeCallback func(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error)
-type AfterCallback func(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error
+type BeforeCallback func(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error)
+type AfterCallback func(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error
 
 // Before callbacks
 
-func GetObjectAndMerge(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error) {
+func GetObjectAndMerge(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error) {
 	result, err := objEndpoints.Apply(client, object, http.MethodGet)
 	if err != nil {
 		if result.response.StatusCode == http.StatusNotFound {
@@ -28,7 +28,7 @@ func GetObjectAndMerge(client *Client, object template.Object, objEndpoints *Obj
 	return method, modifiedJson, nil
 }
 
-func getMethodAndMarshalObject(objEndpoints *ObjectEndpoints,method string, object template.Object) (*MethodDefinition, []byte, error) {
+func getMethodAndMarshalObject(objEndpoints *ObjectEndpoints,method string, object environment.Object) (*MethodDefinition, []byte, error) {
 	post, err := objEndpoints.getMethodDefinition(method, object)
 	if err != nil {
 		return nil, nil, err
@@ -42,27 +42,27 @@ func getMethodAndMarshalObject(objEndpoints *ObjectEndpoints,method string, obje
 
 // After callbacks
 
-func WhenConflictThenPatch(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func WhenConflictThenPatch(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	if result.response.StatusCode == http.StatusConflict {
 		return checkHTTPCode(objEndpoints.Apply(client, object, http.MethodPatch))
 	}
 	return checkHTTPCode(result, nil)
 }
 
-func IgnoreConflicts(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func IgnoreConflicts(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	if result.response.StatusCode == http.StatusConflict {
 		return nil
 	}
 	return checkHTTPCode(result, nil)
 }
 
-func GetObject(client *Client, object template.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func GetObject(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	// todo - shouldn't we check the response codes here as well?
 	_, err := objEndpoints.Apply(client, object, http.MethodGet)
 	return err
 }
 
-func GetObjectExpects404(client *Client, object template.Object, endpoint *ObjectEndpoints, method *MethodDefinition, result *Result) error {
+func GetObjectExpects404(client *Client, object environment.Object, endpoint *ObjectEndpoints, method *MethodDefinition, result *Result) error {
 	if result.response.StatusCode == http.StatusNotFound {
 		return nil
 	}
@@ -92,21 +92,21 @@ func checkHTTPCode(result *Result, e error) error {
 	return e
 }
 
-func LogRequestInfo(client *Client, object template.Object, method *MethodDefinition, result *Result) error {
+func LogRequestInfo(client *Client, object environment.Object, method *MethodDefinition, result *Result) error {
 	client.Log.WithFields(map[string]interface{}{
 		"status":      result.response.StatusCode,
 		"method":      method.action,
 		"cluster_url": result.response.Request.URL,
-		"namespace":   template.GetNamespace(object),
-		"name":        template.GetName(object),
-		"kind":        template.GetKind(object),
+		"namespace":   environment.GetNamespace(object),
+		"name":        environment.GetName(object),
+		"kind":        environment.GetKind(object),
 		"request":     yamlString(object),
 		"response":    result,
 	}).Info("resource requested")
 	return nil
 }
 
-func yamlString(data template.Object) string {
+func yamlString(data environment.Object) string {
 	b, err := yaml.Marshal(data)
 	if err != nil {
 		return fmt.Sprintf("Could not marshal yaml %v", data)

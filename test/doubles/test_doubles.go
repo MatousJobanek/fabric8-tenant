@@ -25,7 +25,7 @@ func LoadTestConfig(t *testing.T) *configuration.Data {
 	return data
 }
 
-func NewOpenshiftClient(clusterURL, token string, config *configuration.Data) *openshift.WithClientBuilder {
+func NewOpenshiftClient(clusterURL, token string, config *configuration.Data) *openshift.ServiceBuilder {
 	return openshift.NewClientWithTransport(NewTestLogger(), clusterURL, token, config, http.DefaultTransport)
 }
 

@@ -46,7 +46,7 @@ func main() {
 	service.Use(jsonapi.ErrorHandler(service, true))
 	service.Use(middleware.Recover())
 
-	authService, err := auth.NewAuthService(config)
+	authService, err := auth.NewAuthService(config, log)
 	if err != nil {
 		log.Panic(nil, map[string]interface{}{
 			"err": err,

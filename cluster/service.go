@@ -3,15 +3,17 @@ package cluster
 import (
 	"context"
 	"io/ioutil"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/fabric8-services/fabric8-tenant/auth"
 	authclient "github.com/fabric8-services/fabric8-tenant/auth/client"
-	"github.com/fabric8-services/fabric8-tenant/openshift"
 	"github.com/fabric8-services/fabric8-wit/log"
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
+	"strings"
+	"fmt"
+	"github.com/fabric8-services/fabric8-tenant/environment"
 )
 
 // Cluster a cluster
@@ -27,19 +29,12 @@ type Cluster struct {
 	Token string
 }
 
-func cleanURL(url string) string {
-	if !strings.HasSuffix(url, "/") {
-		return url + "/"
-	}
-	return url
-}
-
 // Service the interface for the cluster service
 type Service interface {
-	GetCluster(context.Context, string) (*Cluster, error)
-	GetClusters(ctx context.Context) []Cluster
-	Stats() Stats
+	GetClusterNsMapping(space *uuid.UUID) (map[string]*Cluster, error)
+	GetUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error)
 	Stop()
+	Start() error
 }
 
 // Stats some stats about the cached data, for verifying during the tests, at first.
@@ -47,29 +42,6 @@ type Stats struct {
 	CacheHits      int
 	CacheMissed    int
 	CacheRefreshes int
-}
-
-// NewClusterService creates a Resolver that rely on the Auth service to retrieve tokens
-func NewClusterService(refreshInt time.Duration, authClientService *auth.Service) (Service, error) {
-	// setup a ticker to refresh the cluster cache at regular intervals
-	cacheRefresher := time.NewTicker(refreshInt)
-	s := &clusterService{
-		authClientService: authClientService,
-		cacheRefresher:    cacheRefresher,
-		cacheRefreshLock:  &sync.RWMutex{},
-	}
-	// immediately load the list of clusters before returning
-	//err := s.refreshCache(context.Background())
-	//if err != nil {
-	//	log.Error(nil, map[string]interface{}{"error_message": err}, "failed to load the list of clusters during service initialization")
-	//	return nil, err
-	//}
-	//go func() {
-	//	for range cacheRefresher.C { // while the `cacheRefresh` ticker is running
-	//		s.refreshCache(context.Background())
-	//	}
-	//}()
-	return s, nil
 }
 
 type clusterService struct {
@@ -82,14 +54,56 @@ type clusterService struct {
 	cachedClusters    []Cluster
 }
 
-func (s *clusterService) GetCluster(ctx context.Context, target string) (*Cluster, error) {
-	//for _, cluster := range s.GetClusters(ctx) {
-	//	if cleanURL(target) == cleanURL(cluster.APIURL) {
-	//		return &cluster, nil
-	//	}
+// NewClusterService creates a Resolver that rely on the Auth service to retrieve tokens
+func NewClusterService(refreshInt time.Duration, authClientService *auth.Service) (Service, error) {
+	// setup a ticker to refresh the cluster cache at regular intervals
+	cacheRefresher := time.NewTicker(refreshInt)
+	service := &clusterService{
+		authClientService: authClientService,
+		cacheRefresher:    cacheRefresher,
+		cacheRefreshLock:  &sync.RWMutex{},
+	}
+	return service, nil
+}
+
+func (s *clusterService) Start() error {
+	//immediately load the list of clusters before returning
+	err := s.refreshCache(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to load the list of clusters during service initialization")
+	}
+	go func() {
+		for range s.cacheRefresher.C { // while the `cacheRefresh` ticker is running
+			s.refreshCache(context.Background())
+		}
+	}()
+	return nil
+}
+
+func (s *clusterService) GetClusterNsMapping(space *uuid.UUID) (map[string]*Cluster, error) {
+	return make(map[string]*Cluster), nil
+}
+
+func (s *clusterService) GetUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error) {
+	mapping := make(map[string]*Cluster, len(environment.DefaultNamespaces))
+	//cluster, err := s.GetCluster(ctx, *user.UserData.Cluster)
+	//if err != nil {
+	//	return nil, err
 	//}
-	//return nil, fmt.Errorf("unable to resolve cluster")
-	return &Cluster{APIURL: "https://192.168.42.241:8443"}, nil
+	cluster := &Cluster{APIURL: *user.UserData.Cluster, Token: "7O07u551rJgVFWTkOJVDRt_ISKYXNfE1GFAITAklIUM"}
+	for _, nsType := range environment.DefaultNamespaces {
+		mapping[nsType] = cluster
+	}
+	return mapping, nil
+}
+
+func (s *clusterService) GetCluster(ctx context.Context, target string) (*Cluster, error) {
+	for _, cluster := range s.GetClusters(ctx) {
+		if cleanURL(target) == cleanURL(cluster.APIURL) {
+			return &cluster, nil
+		}
+	}
+	return nil, fmt.Errorf("unable to resolve cluster")
 }
 
 func (s *clusterService) GetClusters(ctx context.Context) []Cluster {
@@ -105,6 +119,13 @@ func (s *clusterService) GetClusters(ctx context.Context) []Cluster {
 
 func (s *clusterService) Stop() {
 	s.cacheRefresher.Stop()
+}
+
+func cleanURL(url string) string {
+	if !strings.HasSuffix(url, "/") {
+		return url + "/"
+	}
+	return url
 }
 
 func (s *clusterService) refreshCache(ctx context.Context) error {
@@ -141,7 +162,7 @@ func (s *clusterService) refreshCache(ctx context.Context) error {
 			return errors.Wrapf(err, "Unable to resolve token for cluster %v", cluster.APIURL)
 		}
 		// verify the token
-		_, err = openshift.WhoAmI(ctx, cluster.APIURL, clusterToken, s.authClientService.ClientOptions...)
+		_, err = WhoAmI(ctx, cluster.APIURL, clusterToken, s.authClientService.ClientOptions...)
 		if err != nil {
 			return errors.Wrapf(err, "token retrieved for cluster %v is invalid", cluster.APIURL)
 		}
@@ -165,12 +186,4 @@ func (s *clusterService) refreshCache(ctx context.Context) error {
 	s.cacheRefreshLock.Unlock()
 	log.Debug(ctx, nil, "write lock released")
 	return nil
-}
-
-func (s *clusterService) Stats() Stats {
-	return Stats{
-		CacheHits:      s.cacheHits,
-		CacheMissed:    s.cacheMissed,
-		CacheRefreshes: s.cacheRefreshes,
-	}
 }

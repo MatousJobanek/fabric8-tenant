@@ -1,4 +1,4 @@
-package openshift_test
+package cluster
 
 import (
 	"context"

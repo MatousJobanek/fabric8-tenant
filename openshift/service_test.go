@@ -2,7 +2,7 @@ package openshift_test
 
 import (
 	"testing"
-	"github.com/fabric8-services/fabric8-tenant/template"
+	"github.com/fabric8-services/fabric8-tenant/environment"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/h2non/gock.v1"
 	"os"
@@ -55,7 +55,7 @@ var roleBindingRestrictionObject = `
       - ${PROJECT_USER}
 `
 
-var openshiftClient *openshift.WithClientBuilder
+var openshiftClient *openshift.ServiceBuilder
 
 func TestMain(m *testing.M) {
 	defer gock.Off()
@@ -63,14 +63,14 @@ func TestMain(m *testing.M) {
 	os.Exit(retCode)
 }
 
-func createOpenshiftClient(config *configuration.Data) *openshift.WithClientBuilder {
+func createOpenshiftClient(config *configuration.Data) *openshift.ServiceBuilder {
 	return testdoubles.NewOpenshiftClient("http://starter.com", "USFpK7R-YBRlRONI5Ru-GakBtP7fr891rg", config)
 }
 
 func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 	// given
 	config := testdoubles.LoadTestConfig(t)
-	objects, err := template.ProcessTemplate("aslak-test", config, templateHeader+namespaceObject+roleBindingRestrictionObject)
+	objects, err := environment.ProcessTemplate("aslak-test", config, templateHeader+namespaceObject+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
 	gock.New("http://starter.com").
@@ -87,7 +87,7 @@ func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 		Reply(200)
 
 	// when
-	err = createOpenshiftClient(config).ProcessAndApply(objects).WithPostMethod()
+	err = createOpenshiftClient(config).ApplyAll(objects).WithPostMethod()
 
 	// then
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {
 func TestDeleteIfThereIsConflict(t *testing.T) {
 	// given
 	config := testdoubles.LoadTestConfig(t)
-	objects, err := template.ProcessTemplate("aslak-test", config, templateHeader+roleBindingRestrictionObject)
+	objects, err := environment.ProcessTemplate("aslak-test", config, templateHeader+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
 	gock.New("http://starter.com").
@@ -116,7 +116,7 @@ func TestDeleteIfThereIsConflict(t *testing.T) {
 		Reply(200)
 
 	// when
-	err = createOpenshiftClient(config).ProcessAndApply(objects).WithPostMethod()
+	err = createOpenshiftClient(config).ApplyAll(objects).WithPostMethod()
 
 	// then
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestDeleteIfThereIsConflict(t *testing.T) {
 func TestDeleteAndGet(t *testing.T) {
 	// given
 	config := testdoubles.LoadTestConfig(t)
-	objects, err := template.ProcessTemplate("aslak-test", config, templateHeader+roleBindingRestrictionObject)
+	objects, err := environment.ProcessTemplate("aslak-test", config, templateHeader+roleBindingRestrictionObject)
 	require.NoError(t, err)
 
 	gock.New("http://starter.com").
@@ -136,7 +136,7 @@ func TestDeleteAndGet(t *testing.T) {
 		Reply(404)
 
 	// when
-	err = createOpenshiftClient(config).ProcessAndApply(objects).WithDeleteMethod()
+	err = createOpenshiftClient(config).ApplyAll(objects).WithDeleteMethod()
 
 	// then
 	require.NoError(t, err)
