@@ -33,6 +33,8 @@ type Cluster struct {
 type Service interface {
 	GetClusterNsMapping(space *uuid.UUID) (map[string]*Cluster, error)
 	GetUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error)
+	GetCluster(ctx context.Context, target string) (*Cluster, error)
+	GetClusters(ctx context.Context) []Cluster
 	Stop()
 	Start() error
 }
@@ -55,7 +57,7 @@ type clusterService struct {
 }
 
 // NewClusterService creates a Resolver that rely on the Auth service to retrieve tokens
-func NewClusterService(refreshInt time.Duration, authClientService *auth.Service) (Service, error) {
+func NewClusterService(refreshInt time.Duration, authClientService *auth.Service) Service {
 	// setup a ticker to refresh the cluster cache at regular intervals
 	cacheRefresher := time.NewTicker(refreshInt)
 	service := &clusterService{
@@ -63,7 +65,7 @@ func NewClusterService(refreshInt time.Duration, authClientService *auth.Service
 		cacheRefresher:    cacheRefresher,
 		cacheRefreshLock:  &sync.RWMutex{},
 	}
-	return service, nil
+	return service
 }
 
 func (s *clusterService) Start() error {
@@ -86,11 +88,11 @@ func (s *clusterService) GetClusterNsMapping(space *uuid.UUID) (map[string]*Clus
 
 func (s *clusterService) GetUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error) {
 	mapping := make(map[string]*Cluster, len(environment.DefaultNamespaces))
-	//cluster, err := s.GetCluster(ctx, *user.UserData.Cluster)
-	//if err != nil {
-	//	return nil, err
-	//}
-	cluster := &Cluster{APIURL: *user.UserData.Cluster, Token: "7O07u551rJgVFWTkOJVDRt_ISKYXNfE1GFAITAklIUM"}
+	cluster, err := s.GetCluster(ctx, *user.UserData.Cluster)
+	if err != nil {
+		return nil, err
+	}
+	//cluster := &Cluster{APIURL: *user.UserData.Cluster, Token: "7O07u551rJgVFWTkOJVDRt_ISKYXNfE1GFAITAklIUM"}
 	for _, nsType := range environment.DefaultNamespaces {
 		mapping[nsType] = cluster
 	}

@@ -72,12 +72,8 @@ func main() {
 	c := controller.NewStatusController(service)
 	app.MountStatusController(service, c)
 
-	//cluster := controller.Cluster{
-	//	APIURL:"https://192.168.42.241:8443",
-	//	Token:"3PhkSX3hqmHyk1XXuFjL5-xzvV9iG1-BiPAvij7jxwg",
-	//}
-
-	clusterService, err := cluster.NewClusterService(config.GetClustersRefreshDelay(), authService)
+	clusterService := cluster.NewClusterService(config.GetClustersRefreshDelay(), authService)
+	//err = clusterService.Start()
 	if err != nil {
 		log.Panic(nil, map[string]interface{}{
 			"err": err,

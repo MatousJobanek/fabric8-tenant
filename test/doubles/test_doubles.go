@@ -12,6 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/fabric8-services/fabric8-tenant/test/recorder"
 	commonConfig "github.com/fabric8-services/fabric8-common/configuration"
+	"github.com/fabric8-services/fabric8-tenant/cluster"
+	"time"
+	"github.com/fabric8-services/fabric8-tenant/app"
+	"github.com/fabric8-services/fabric8-tenant/auth/client"
+	"github.com/fabric8-services/fabric8-tenant/utils"
+	"github.com/satori/go.uuid"
 )
 
 func LoadTestConfig(t *testing.T) *configuration.Data {
@@ -25,8 +31,17 @@ func LoadTestConfig(t *testing.T) *configuration.Data {
 	return data
 }
 
-func NewOpenshiftClient(clusterURL, token string, config *configuration.Data) *openshift.ServiceBuilder {
-	return openshift.NewClientWithTransport(NewTestLogger(), clusterURL, token, config, http.DefaultTransport)
+func NewOpenshiftService(clusterURL, token string, config *configuration.Data, space *uuid.UUID) *openshift.ServiceBuilder {
+	service := cluster.NewClusterService(time.Second, nil)
+	user := &auth.User{
+		OpenshiftUserToken: token,
+		UserData:           &client.UserDataAttributes{Cluster: utils.String(clusterURL)}}
+
+	mapping, _ := service.GetUserClusterNsMapping(
+		&app.SetupTenantContext{}, user)
+
+	context := openshift.NewServiceContext(config, mapping, user, space)
+	return openshift.NewBuilderWithTransport(NewTestLogger(),context, http.DefaultTransport)
 }
 
 // NewTestLogger creates a logger instance not logging any output to Out Writer
@@ -40,7 +55,7 @@ func NewTestLogger() log.Logger {
 }
 
 func NewAuthClientService(t *testing.T, cassetteName, authURL string, recorderOptions ...recorder.Option) *auth.Service {
-	var options  []commonConfig.HTTPClientOption
+	var options []commonConfig.HTTPClientOption
 	if cassetteName != "" {
 		r, err := recorder.New(cassetteName, recorderOptions...)
 		require.NoError(t, err)

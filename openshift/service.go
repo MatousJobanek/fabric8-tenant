@@ -12,8 +12,8 @@ import (
 	"sort"
 	"time"
 	"fmt"
-	"github.com/arquillian/ike-prow-plugins/pkg/retry"
 	"github.com/fabric8-services/fabric8-tenant/auth"
+	"github.com/fabric8-services/fabric8-tenant/retry"
 )
 
 type ServiceBuilder struct {
@@ -21,7 +21,7 @@ type ServiceBuilder struct {
 }
 
 type Service struct {
-	httpTransport *http.Transport
+	httpTransport http.RoundTripper
 	nsTypes       []string
 	log           log.Logger
 	context       *ServiceContext
@@ -36,7 +36,7 @@ func NewService(log log.Logger, context *ServiceContext) *ServiceBuilder {
 	return NewBuilderWithTransport(log, context, httpTransport)
 }
 
-func NewBuilderWithTransport(log log.Logger, context *ServiceContext, transport *http.Transport) *ServiceBuilder {
+func NewBuilderWithTransport(log log.Logger, context *ServiceContext, transport http.RoundTripper) *ServiceBuilder {
 	return &ServiceBuilder{service: &Service{
 		httpTransport: transport,
 		log:           log,
@@ -90,13 +90,13 @@ func (s *Service) processAndApplyAll(action string) error {
 	nsTypesWait.Add(len(s.nsTypes))
 
 	for _, nsType := range s.nsTypes {
-		go processAndApply(&nsTypesWait, s.log, *s.context, nsType, action, *s.httpTransport)
+		go processAndApply(&nsTypesWait, s.log, *s.context, nsType, action, s.httpTransport)
 	}
 	nsTypesWait.Wait()
 	return nil
 }
 
-func processAndApply(nsTypeWait *sync.WaitGroup, log log.Logger, context ServiceContext, nsType string, action string, transport http.Transport) {
+func processAndApply(nsTypeWait *sync.WaitGroup, log log.Logger, context ServiceContext, nsType string, action string, transport http.RoundTripper) {
 	defer nsTypeWait.Done()
 
 	env, err := environment.NewService(context.config).GetEnvData(context.space, nsType)
@@ -114,7 +114,7 @@ func processAndApply(nsTypeWait *sync.WaitGroup, log log.Logger, context Service
 	}
 
 	cluster := context.clusterMapping[nsType]
-	client := newClient(log, &transport, cluster.APIURL, cluster.Token)
+	client := newClient(log, transport, cluster.APIURL, cluster.Token)
 
 	var objectsWait sync.WaitGroup
 	objectsWait.Add(len(objects))

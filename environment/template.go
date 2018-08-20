@@ -75,8 +75,8 @@ type Object map[string]interface{}
 
 type Template struct {
 	Filename      string
-	defaultParams map[string]string
-	content       string
+	DefaultParams map[string]string
+	Content       string
 }
 
 var (
@@ -88,15 +88,15 @@ var (
 func newTemplate(filename string, defaultParams map[string]string) Template {
 	return Template{
 		Filename:      filename,
-		defaultParams: defaultParams,
+		DefaultParams: defaultParams,
 	}
 }
 
 func (t Template) Process(vars map[string]string) (Objects, error) {
 
 	var objects Objects
-	templateVars := merge(vars, t.defaultParams)
-	pt, err := t.process(templateVars)
+	templateVars := merge(vars, t.DefaultParams)
+	pt, err := t.ReplaceVars(templateVars)
 	if err != nil {
 		return objects, err
 	}
@@ -104,9 +104,9 @@ func (t Template) Process(vars map[string]string) (Objects, error) {
 }
 
 // Process takes a K8/Openshift Template as input and resolves the variable expresions
-func (t Template)  process(variables map[string]string) (string, error) {
+func (t Template) ReplaceVars(variables map[string]string) (string, error) {
 	reg := regexp.MustCompile(`\${([A-Z_0-9]+)}`)
-	return string(reg.ReplaceAllFunc([]byte(t.content), func(found []byte) []byte {
+	return string(reg.ReplaceAllFunc([]byte(t.Content), func(found []byte) []byte {
 		variableName := toVariableName(string(found))
 		if variable, ok := variables[variableName]; ok {
 			return []byte(variable)

@@ -7,6 +7,7 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/environment"
 	"regexp"
 	"github.com/fabric8-services/fabric8-tenant/test/doubles"
+	"sort"
 )
 
 var processTemplate = `
@@ -123,8 +124,9 @@ objects:
 
 func TestSort(t *testing.T) {
 	data := testdoubles.LoadTestConfig(t)
-
-	objects, err := environment.ProcessTemplate("developer", data, sortTemplate)
+	template := environment.Template{Content:sortTemplate}
+	objects, err := template.Process(environment.CollectVars("developer", data))
+	sort.Sort(environment.ByKind(objects))
 	require.NoError(t, err)
 
 	assert.Equal(t, "ProjectRequest", kind(objects[0]))
@@ -134,14 +136,15 @@ func TestSort(t *testing.T) {
 }
 
 func TestParseNamespace(t *testing.T) {
-	objects, err := environment.ProcessTemplate("developer", testdoubles.LoadTestConfig(t), parseNamespaceTemplate)
+	template := environment.Template{Content:parseNamespaceTemplate}
+	objects, err := template.Process(environment.CollectVars("developer", testdoubles.LoadTestConfig(t)))
 	require.NoError(t, err)
 
 	assert.Equal(t, "Namespace", kind(objects[0]))
 	assert.Equal(t, "RoleBindingRestriction", kind(objects[1]))
 }
 
-func kind(object map[interface{}]interface{}) string {
+func kind(object environment.Object) string {
 	return object["kind"].(string)
 }
 
@@ -174,7 +177,8 @@ func TestProcess(t *testing.T) {
 		"PROJECT_REQUESTING_USER": "Aslak-User",
 		"PROJECT_NAME":            "Aslak-Test",
 	}
-	processed, err := environment.Process(processTemplate, vars)
+	template := environment.Template{Content:processTemplate}
+	processed, err := template.ReplaceVars(vars)
 	require.Nil(t, err, "error processing templateDef")
 
 	t.Run("verify no templateDef markers in output", func(t *testing.T) {
@@ -198,7 +202,8 @@ func TestProcess(t *testing.T) {
 func TestProcessVariables(t *testing.T) {
 	vars := map[string]string{}
 
-	processed, err := environment.Process(processTemplateVariables, vars)
+	template := environment.Template{Content:processTemplateVariables}
+	processed, err := template.ReplaceVars(vars)
 	require.Nil(t, err, "error processing templateDef")
 
 	t.Run("Verify non replaced markers are left", func(t *testing.T) {

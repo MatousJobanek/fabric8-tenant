@@ -82,6 +82,6 @@ func retrieveTemplate(template *Template, config *configuration.Data) error {
 	} else {
 		content, err = assets.Asset(template.Filename)
 	}
-	template.content = string(content)
+	template.Content = string(content)
 	return err
 }

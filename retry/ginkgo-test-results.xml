@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-  <testsuite name="Retry Suite" tests="3" failures="0" time="9.7196e-05">
-      <testcase name="Retry logic should accumulate all errors when all attempts failed" classname="Retry Suite" time="2.2109e-05"></testcase>
-      <testcase name="Retry logic should execute once when 0 retries specified" classname="Retry Suite" time="1.795e-06"></testcase>
-      <testcase name="Retry logic should retry 3 times out of 10 times when 3rd attempt successful and don&#39;t return errors" classname="Retry Suite" time="1.675e-06"></testcase>
-  </testsuite>

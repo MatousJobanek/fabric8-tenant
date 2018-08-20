@@ -29,10 +29,8 @@ func TestResolveCluster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	authService.SaToken = saToken.Raw
-	clusterService, err := cluster.NewClusterService(time.Hour, authService)
-
-
-	//token.NewGPGDecypter("foo"),
+	clusterService := cluster.NewClusterService(time.Hour, authService)
+	err = clusterService.Start()
 
 	require.NoError(t, err)
 	defer clusterService.Stop()
@@ -93,7 +91,8 @@ func TestGetClusters(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 
-		clusterService, err := cluster.NewClusterService(time.Hour, authService)
+		clusterService := cluster.NewClusterService(time.Hour, authService)
+		err := clusterService.Start()
 		require.NoError(t, err)
 		defer clusterService.Stop()
 		// when
@@ -113,7 +112,8 @@ func TestGetClusters(t *testing.T) {
 	t.Run("cache", func(t *testing.T) {
 
 		t.Run("concurrent reads", func(t *testing.T) {
-			clusterService, err := cluster.NewClusterService(time.Second, authService)
+			clusterService := cluster.NewClusterService(time.Second, authService)
+			err := clusterService.Start()
 			require.NoError(t, err)
 			defer clusterService.Stop()
 			// when 5 requests arrive at the same time (more or less)
