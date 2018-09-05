@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go"
 	goajwt "github.com/goadesign/goa/middleware/security/jwt"
 )
 

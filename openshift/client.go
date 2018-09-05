@@ -4,7 +4,6 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/environment"
 	"net/http"
 	"fmt"
-	"github.com/fabric8-services/fabric8-tenant/log"
 	"net/http/httputil"
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	"bytes"
@@ -17,15 +16,13 @@ import (
 
 type Client struct {
 	client    *http.Client
-	Log       log.Logger
 	MasterURL string
 	Token     string
 }
 
-func newClient(log log.Logger, httpTransport http.RoundTripper, masterURL string, token string) *Client {
+func newClient(httpTransport http.RoundTripper, masterURL string, token string) *Client {
 	return &Client{
 		client:    createHTTPClient(httpTransport),
-		Log:       log,
 		MasterURL: masterURL,
 		Token:     token,
 	}

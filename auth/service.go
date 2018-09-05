@@ -10,7 +10,6 @@ import (
 	commonConfig "github.com/fabric8-services/fabric8-common/configuration"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
 	goaclient "github.com/goadesign/goa/client"
-	"github.com/satori/go.uuid"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/fabric8-services/fabric8-tenant/jsonapi"
 	commonErrors "github.com/fabric8-services/fabric8-common/errors"
@@ -199,14 +198,12 @@ func (s *Service) ResolveTargetToken(ctx context.Context, target, token string, 
 }
 
 func (s *Service) GetAuthUserData(ctx context.Context, userToken *jwt.Token) (*authclient.UserDataAttributes, error) {
-	id := subject(userToken)
-
 	c, err := s.NewSaClient()
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := c.ShowUsers(ctx, authclient.ShowUsersPath(id.String()), nil, nil)
+	res, err := c.ShowUsers(ctx, authclient.ShowUsersPath(subject(userToken)), nil, nil)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "error while doing the request")
@@ -225,13 +222,9 @@ func (s *Service) GetAuthUserData(ctx context.Context, userToken *jwt.Token) (*a
 	return user.Data.Attributes, nil
 }
 
-func subject(token *jwt.Token) uuid.UUID {
+func subject(token *jwt.Token) string {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		id, err := uuid.FromString(claims["sub"].(string))
-		if err != nil {
-			return uuid.UUID{}
-		}
-		return id
+		return claims["sub"].(string)
 	}
-	return uuid.UUID{}
+	return ""
 }

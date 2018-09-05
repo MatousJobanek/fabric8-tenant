@@ -17,14 +17,16 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/jsonapi"
 	"github.com/fabric8-services/fabric8-tenant/cluster"
 	"github.com/fabric8-services/fabric8-tenant/auth"
+	"os"
+	"github.com/fabric8-services/fabric8-tenant/dbsupport"
 )
 
 func main() {
 
 	viper.GetStringMapString("TEST")
 
-	//var migrateDB bool
-	//flag.BoolVar(&migrateDB, "migrateDatabase", false, "Migrates the database to the newest version and exits.")
+	var migrateDB bool
+	flag.BoolVar(&migrateDB, "migrateDatabase", false, "Migrates the database to the newest version and exits.")
 	flag.Parse()
 
 	// Initialized configuration
@@ -36,6 +38,28 @@ func main() {
 	}
 
 	log := configureLogger(config)
+
+	db := dbsupport.Connect(config, log)
+	defer db.Close()
+	dbsupport.Migrate(db, config, log)
+
+	// Nothing to here except exit, since the migration is already performed.
+	if migrateDB {
+		os.Exit(0)
+	}
+
+	// Make sure the database is populated with the correct types (e.g. bug etc.)
+	//if config.GetPopulateCommonTypes() {
+	//	ctx := migration.NewMigrationContext(context.Background())
+	//
+	//	if err := models.Transactional(db, func(tx *gorm.DB) error {
+	//		return migration.PopulateCommonTypes(ctx, tx)
+	//	}); err != nil {
+	//		log.Panic(ctx, map[string]interface{}{
+	//			"err": err,
+	//		}, "failed to populate common types")
+	//	}
+	//}
 
 	// Create service
 	service := goa.New("tenant")
@@ -69,7 +93,7 @@ func main() {
 	app.UseJWTMiddleware(service, goajwt.New(publicKeys, nil, app.NewJWTSecurity()))
 
 	// Mount "status" controller
-	c := controller.NewStatusController(service)
+	c := controller.NewStatusController(service, db)
 	app.MountStatusController(service, c)
 
 	clusterService := cluster.NewClusterService(config.GetClustersRefreshDelay(), authService)
@@ -81,8 +105,10 @@ func main() {
 	}
 	defer clusterService.Stop()
 
+	tenantRepository := dbsupport.NewTenantRepository(db)
+
 	// Mount "tenant" controller
-	tenant := controller.NewTenantController(service, clusterService, authService, log, config)
+	tenant := controller.NewTenantController(service, clusterService, authService, log, config, tenantRepository)
 	app.MountTenantController(service, tenant)
 	// Mount "tenants" controller
 	tenants := controller.NewTenantsController(service)

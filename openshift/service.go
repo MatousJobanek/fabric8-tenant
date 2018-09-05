@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"crypto/tls"
 	"github.com/fabric8-services/fabric8-tenant/configuration"
-	"github.com/fabric8-services/fabric8-tenant/log"
 	"github.com/fabric8-services/fabric8-tenant/cluster"
 	"github.com/satori/go.uuid"
 	"sync"
@@ -12,8 +11,9 @@ import (
 	"sort"
 	"time"
 	"fmt"
-	"github.com/fabric8-services/fabric8-tenant/auth"
 	"github.com/fabric8-services/fabric8-tenant/retry"
+	"github.com/fabric8-services/fabric8-tenant/dbsupport"
+	log "github.com/sirupsen/logrus"
 )
 
 type ServiceBuilder struct {
@@ -21,42 +21,44 @@ type ServiceBuilder struct {
 }
 
 type Service struct {
-	httpTransport http.RoundTripper
-	nsTypes       []string
-	log           log.Logger
-	context       *ServiceContext
+	httpTransport       http.RoundTripper
+	nsTypes             []string
+	context             *ServiceContext
+	namespaceRepository dbsupport.NamespaceRepository
 }
 
-func NewService(log log.Logger, context *ServiceContext) *ServiceBuilder {
+func NewService(context *ServiceContext, namespaceRepository dbsupport.NamespaceRepository) *ServiceBuilder {
 	httpTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: context.config.APIServerInsecureSkipTLSVerify(),
 		},
 	}
-	return NewBuilderWithTransport(log, context, httpTransport)
+	return NewBuilderWithTransport(context, namespaceRepository, httpTransport)
 }
 
-func NewBuilderWithTransport(log log.Logger, context *ServiceContext, transport http.RoundTripper) *ServiceBuilder {
+func NewBuilderWithTransport(context *ServiceContext, nsRepo dbsupport.NamespaceRepository, transport http.RoundTripper) *ServiceBuilder {
 	return &ServiceBuilder{service: &Service{
-		httpTransport: transport,
-		log:           log,
-		context:       context,
+		httpTransport:       transport,
+		context:             context,
+		namespaceRepository: nsRepo,
 	}}
 }
 
 type ServiceContext struct {
-	clusterMapping map[string]*cluster.Cluster
-	user           *auth.User
-	config         *configuration.Data
-	space          *uuid.UUID
+	clusterMapping    ClusterMapping
+	openShiftUsername string
+	config            *configuration.Data
+	space             *uuid.UUID
 }
 
-func NewServiceContext(config *configuration.Data, clusterMapping map[string]*cluster.Cluster, user *auth.User, space *uuid.UUID) *ServiceContext {
+type ClusterMapping map[string]*cluster.Cluster
+
+func NewServiceContext(config *configuration.Data, clusterMapping ClusterMapping, openShiftUsername string, space *uuid.UUID) *ServiceContext {
 	return &ServiceContext{
-		clusterMapping: clusterMapping,
-		user:           user,
-		config:         config,
-		space:          space,
+		clusterMapping:    clusterMapping,
+		openShiftUsername: openShiftUsername,
+		config:            config,
+		space:             space,
 	}
 }
 
@@ -65,78 +67,91 @@ func (b *ServiceBuilder) ApplyAll(nsTypes []string) *Service {
 	return b.service
 }
 
+func (b *ServiceBuilder) Apply(nsType string) *Service {
+	b.service.nsTypes = []string{nsType}
+	return b.service
+}
+
 func (s *Service) WithPostMethod() error {
-	return s.processAndApplyAll(http.MethodPost)
+	return s.processAndApplyAll(&create{})
 }
 
 func (s *Service) WithPatchMethod() error {
-	return s.processAndApplyAll(http.MethodPatch)
+	return s.processAndApplyAll(&update{})
 }
 
-func (s *Service) WithPutMethod() error {
-	return s.processAndApplyAll(http.MethodPut)
-}
-
-func (s *Service) WithGetMethod() error {
-	return s.processAndApplyAll(http.MethodGet)
-}
+//func (s *Service) WithGetMethod() error {
+//	return s.processAndApplyAll(&get{})
+//}
 
 func (s *Service) WithDeleteMethod() error {
-	return s.processAndApplyAll(http.MethodDelete)
+	return s.processAndApplyAll(&delete{})
 }
 
-func (s *Service) processAndApplyAll(action string) error {
+func (s *Service) processAndApplyAll(action NamespaceAction) error {
 	var nsTypesWait sync.WaitGroup
 	nsTypesWait.Add(len(s.nsTypes))
 
 	for _, nsType := range s.nsTypes {
-		go processAndApply(&nsTypesWait, s.log, *s.context, nsType, action, s.httpTransport)
+		go processAndApplyNs(&nsTypesWait, *s.context, nsType, action, s.httpTransport, s.namespaceRepository)
 	}
 	nsTypesWait.Wait()
 	return nil
 }
 
-func processAndApply(nsTypeWait *sync.WaitGroup, log log.Logger, context ServiceContext, nsType string, action string, transport http.RoundTripper) {
+func processAndApplyNs(nsTypeWait *sync.WaitGroup, context ServiceContext, nsType string, action NamespaceAction, transport http.RoundTripper, nsRepo dbsupport.NamespaceRepository) {
 	defer nsTypeWait.Done()
 
+	namespace, err := action.getNamespaceEntity(context.space, nsType, nsRepo)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	env, err := environment.NewService(context.config).GetEnvData(context.space, nsType)
-	vars := environment.CollectVars(context.user.OpenshiftUserName, context.config)
+	vars := environment.CollectVars(context.openShiftUsername, context.config)
 	objects, err := env.Template.Process(vars)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 
-	if action == http.MethodDelete {
+	if action.methodName() == http.MethodDelete {
 		sort.Reverse(environment.ByKind(objects))
 	} else {
 		sort.Sort(environment.ByKind(objects))
 	}
 
 	cluster := context.clusterMapping[nsType]
-	client := newClient(log, transport, cluster.APIURL, cluster.Token)
+	client := newClient(transport, cluster.APIURL, cluster.Token)
 
 	var objectsWait sync.WaitGroup
 	objectsWait.Add(len(objects))
 
 	for _, object := range objects {
-		go apply(&objectsWait, *client, action, object)
+		go apply(&objectsWait, *client, action.methodName(), object)
 	}
+
 	objectsWait.Wait()
+	action.updateTable(env, cluster, namespace, nsRepo)
 }
 
 func apply(objectsWait *sync.WaitGroup, client Client, action string, object environment.Object) {
 	defer objectsWait.Done()
-	errs := retry.Do(5, time.Millisecond*50, func() error {
-		objectEndpoint, found := objectEndpoints[environment.GetKind(object)]
-		if !found {
-			return fmt.Errorf("there is no supported endpoint for the object %s", environment.GetKind(object))
 
-		}
+	objectEndpoint, found := objectEndpoints[environment.GetKind(object)]
+	if !found {
+		err := fmt.Errorf("there is no supported endpoint for the object %s", environment.GetKind(object))
+		log.Error(err)
+		return
+	}
+
+	errs := retry.Do(5, time.Millisecond*50, func() error {
 		_, err := objectEndpoint.Apply(&client, object, action)
 		return err
 	})
+
 	if len(errs) != 0 {
-		client.Log.Error(errs)
+		log.Error(errs)
 	}
 }

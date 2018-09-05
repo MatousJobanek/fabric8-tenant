@@ -14,6 +14,7 @@ import (
 	"strings"
 	"fmt"
 	"github.com/fabric8-services/fabric8-tenant/environment"
+	"github.com/fabric8-services/fabric8-tenant/utils"
 )
 
 // Cluster a cluster
@@ -31,8 +32,7 @@ type Cluster struct {
 
 // Service the interface for the cluster service
 type Service interface {
-	GetClusterNsMapping(space *uuid.UUID) (map[string]*Cluster, error)
-	GetUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error)
+	GetClusterNsMapping(ctx context.Context, user *auth.User, space *uuid.UUID) (map[string]*Cluster, error)
 	GetCluster(ctx context.Context, target string) (*Cluster, error)
 	GetClusters(ctx context.Context) []Cluster
 	Stop()
@@ -82,11 +82,21 @@ func (s *clusterService) Start() error {
 	return nil
 }
 
-func (s *clusterService) GetClusterNsMapping(space *uuid.UUID) (map[string]*Cluster, error) {
+func (s *clusterService) GetClusterNsMapping(ctx context.Context, user *auth.User, space *uuid.UUID) (map[string]*Cluster, error) {
+	user.UserData.Cluster = utils.String("https://192.168.42.241:8443")
+
+	if space != nil && auth.IsCollaborator(space, user.UserData) {
+		return s.getClusterNsMapping(space)
+	} else {
+		return s.getUserClusterNsMapping(ctx, user)
+	}
+}
+
+func (s *clusterService) getClusterNsMapping(space *uuid.UUID) (map[string]*Cluster, error) {
 	return make(map[string]*Cluster), nil
 }
 
-func (s *clusterService) GetUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error) {
+func (s *clusterService) getUserClusterNsMapping(ctx context.Context, user *auth.User) (map[string]*Cluster, error) {
 	mapping := make(map[string]*Cluster, len(environment.DefaultNamespaces))
 	cluster, err := s.GetCluster(ctx, *user.UserData.Cluster)
 	if err != nil {

@@ -97,9 +97,6 @@ var _ = a.Resource("tenant", func() {
 		a.Params(func() {
 			a.Param("space", d.UUID, "ID of a space tenant should be created in")
 			a.Param("type", d.String, "The requested namespace of the tenant")
-			a.Param("w", d.Boolean, "If the access is in write or only view mode", func() {
-				a.Default(true)
-			})
 		})
 
 		a.Description("Initialize new tenant environment.")
@@ -137,6 +134,9 @@ var _ = a.Resource("tenant", func() {
 		a.Params(func() {
 			a.Param("space", d.UUID, "ID of a space the tenant belongs to")
 			a.Param("type", d.String, "The requested namespace of the tenant")
+			a.Param("w", d.Boolean, "If the access is in write or only view mode", func() {
+				a.Default(true)
+			})
 		})
 
 		a.Description("Get information about a tenant environment.")
@@ -176,6 +176,8 @@ var _ = a.Resource("tenants", func() {
 		)
 		a.Params(func() {
 			a.Param("tenantID", d.UUID, "ID of the tenant to show")
+			a.Param("space", d.UUID, "ID of a space the tenant belongs to")
+			a.Param("type", d.String, "The requested namespace of the tenant")
 		})
 		a.Description("Show a single tenant environment.")
 		a.Response(d.OK, tenantSingle)

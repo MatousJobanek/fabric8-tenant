@@ -15,9 +15,9 @@ import (
 	"github.com/fabric8-services/fabric8-tenant/cluster"
 	"time"
 	"github.com/fabric8-services/fabric8-tenant/app"
-	"github.com/fabric8-services/fabric8-tenant/auth/client"
-	"github.com/fabric8-services/fabric8-tenant/utils"
 	"github.com/satori/go.uuid"
+	"github.com/fabric8-services/fabric8-tenant/environment"
+	"github.com/fabric8-services/fabric8-tenant/dbsupport"
 )
 
 func LoadTestConfig(t *testing.T) *configuration.Data {
@@ -31,17 +31,22 @@ func LoadTestConfig(t *testing.T) *configuration.Data {
 	return data
 }
 
-func NewOpenshiftService(clusterURL, token string, config *configuration.Data, space *uuid.UUID) *openshift.ServiceBuilder {
+func NewOpenshiftService(clusterURL, openShiftUsername string, config *configuration.Data, space *uuid.UUID, namespaceRepo dbsupport.NamespaceRepository) *openshift.ServiceBuilder {
 	service := cluster.NewClusterService(time.Second, nil)
-	user := &auth.User{
-		OpenshiftUserToken: token,
-		UserData:           &client.UserDataAttributes{Cluster: utils.String(clusterURL)}}
+	//user := &auth.User{
+	//	OpenshiftUserToken: token,
+	//	UserData:           &client.UserDataAttributes{Cluster: utils.String(clusterURL)}}
 
-	mapping, _ := service.GetUserClusterNsMapping(
-		&app.SetupTenantContext{}, user)
+	userCluster, _ := service.GetCluster(
+		&app.SetupTenantContext{}, clusterURL)
 
-	context := openshift.NewServiceContext(config, mapping, user, space)
-	return openshift.NewBuilderWithTransport(NewTestLogger(),context, http.DefaultTransport)
+	var mapping openshift.ClusterMapping
+	for _, ns := range environment.DefaultNamespaces {
+		mapping[ns] = userCluster
+	}
+
+	context := openshift.NewServiceContext(config, mapping, openShiftUsername, space)
+	return openshift.NewBuilderWithTransport(context, namespaceRepo, http.DefaultTransport)
 }
 
 // NewTestLogger creates a logger instance not logging any output to Out Writer

@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 }
 
 func createOpenshiftClient(config *configuration.Data) *openshift.ServiceBuilder {
-	return testdoubles.NewOpenshiftService("http://starter.com", "USFpK7R-YBRlRONI5Ru-GakBtP7fr891rg", config, nil)
+	return testdoubles.NewOpenshiftService("http://starter.com", "aslak", config, nil, nil)
 }
 
 //func TestInvokePostAndGetCallsForAllObjects(t *testing.T) {

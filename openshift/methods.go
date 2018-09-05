@@ -78,7 +78,7 @@ func DELETE(afterCallbacks ...AfterCallback) methodDefCreator {
 		return NewMethodDefinition(
 			http.MethodDelete,
 			[]BeforeCallback{},
-			append(afterCallbacks),
+			append(afterCallbacks), // todo check when response is 404
 			RequestCreator{creator: func(urlCreator urlCreator, body []byte) (*http.Request, error) {
 				body = []byte(deleteOptions)
 				return newDefaultRequest(http.MethodDelete, urlCreator(urlTemplate), body)

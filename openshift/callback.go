@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"github.com/fabric8-services/fabric8-tenant/utils"
+	log "github.com/sirupsen/logrus"
 )
 
 type BeforeCallback func(client *Client, object environment.Object, objEndpoints *ObjectEndpoints, method *MethodDefinition) (*MethodDefinition, []byte, error)
@@ -28,7 +29,7 @@ func GetObjectAndMerge(client *Client, object environment.Object, objEndpoints *
 	return method, modifiedJson, nil
 }
 
-func getMethodAndMarshalObject(objEndpoints *ObjectEndpoints,method string, object environment.Object) (*MethodDefinition, []byte, error) {
+func getMethodAndMarshalObject(objEndpoints *ObjectEndpoints, method string, object environment.Object) (*MethodDefinition, []byte, error) {
 	post, err := objEndpoints.getMethodDefinition(method, object)
 	if err != nil {
 		return nil, nil, err
@@ -93,7 +94,7 @@ func checkHTTPCode(result *Result, e error) error {
 }
 
 func LogRequestInfo(client *Client, object environment.Object, method *MethodDefinition, result *Result) error {
-	client.Log.WithFields(map[string]interface{}{
+	log.WithFields(map[string]interface{}{
 		"status":      result.response.StatusCode,
 		"method":      method.action,
 		"cluster_url": result.response.Request.URL,

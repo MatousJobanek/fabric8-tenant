@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"net/http"
 	"crypto/tls"
+	"crypto/rsa"
 )
 
 const (
@@ -62,6 +63,14 @@ const (
 // Data encapsulates the Viper configuration object which stores the configuration data in-memory.
 type Data struct {
 	v *viper.Viper
+}
+
+// Registry encapsulates the Viper configuration registry which stores the
+// configuration data in-memory.
+type Registry struct {
+	v               *viper.Viper
+	tokenPublicKey  *rsa.PublicKey
+	tokenPrivateKey *rsa.PrivateKey
 }
 
 // NewData creates a configuration reader object using a configurable configuration file path
