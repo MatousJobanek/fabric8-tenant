@@ -1,0 +1,125 @@
+---
+apiVersion: v1
+kind: Template
+metadata:
+  labels:
+    app: fabric8-tenant-${DEPLOY_TYPE}
+    provider: fabric8
+    version: ${COMMIT}
+  name: fabric8-tenant-${DEPLOY_TYPE}
+objects:
+- apiVersion: v1
+  kind: ProjectRequest
+  metadata:
+    annotations:
+      openshift.io/description: ${NAMESPACE_PREFIX} ${DEPLOY_TYPE} Environment
+      openshift.io/display-name: ${NAMESPACE_PREFIX} ${DEPLOY_TYPE}
+      openshift.io/requester: ${PROJECT_REQUESTING_USER}
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+- apiVersion: v1
+  kind: RoleBindingRestriction
+  metadata:
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: dsaas-access-sa-ns
+    namespace: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+  spec:
+    serviceaccountrestriction:
+      namespaces:
+      - ${NAMESPACE_PREFIX}-jenkins
+- apiVersion: v1
+  kind: RoleBindingRestriction
+  metadata:
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: dsaas-user-access
+    namespace: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+  spec:
+    userrestriction:
+      users:
+      - ${PROJECT_USER}
+- apiVersion: v1
+  kind: RoleBinding
+  metadata:
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: jenkins-edit
+    namespace: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+  roleRef:
+    name: edit
+  subjects:
+  - kind: ServiceAccount
+    name: jenkins
+  userNames:
+  - system:serviceaccount:${NAMESPACE_PREFIX}-jenkins:jenkins
+- apiVersion: v1
+  kind: RoleBinding
+  metadata:
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: jenkins-view
+    namespace: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+  roleRef:
+    name: view
+  subjects:
+  - kind: ServiceAccount
+    name: jenkins
+  userNames:
+  - system:serviceaccount:${NAMESPACE_PREFIX}-jenkins:jenkins
+- apiVersion: v1
+  kind: RoleBinding
+  metadata:
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: user-edit
+    namespace: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+  roleRef:
+    name: edit
+  subjects:
+  - kind: User
+    name: ${PROJECT_USER}
+  userNames:
+  - ${PROJECT_USER}
+- apiVersion: v1
+  kind: RoleBinding
+  metadata:
+    labels:
+      app: fabric8-tenant-${DEPLOY_TYPE}
+      provider: fabric8
+      version: ${COMMIT}
+    name: user-view
+    namespace: ${NAMESPACE_PREFIX}-${DEPLOY_TYPE}
+  roleRef:
+    name: view
+  subjects:
+  - kind: User
+    name: ${PROJECT_USER}
+  userNames:
+  - ${PROJECT_USER}
+parameters:
+- name: NAMESPACE_PREFIX
+  value: developer
+- name: DEPLOY_TYPE
+  value: run
+- name: PROJECT_NAME
+  value: myproject
+- name: PROJECT_ADMIN_USER
+  value: developer
+- name: PROJECT_REQUESTING_USER
+  value: system:admin
+- name: COMMIT
+  value: 123abc
