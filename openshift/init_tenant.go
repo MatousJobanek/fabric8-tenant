@@ -5,9 +5,10 @@ import (
 
 	"sync"
 
+	"github.com/fabric8-services/fabric8-common/log"
+	"github.com/fabric8-services/fabric8-tenant/sentry"
 	"github.com/fabric8-services/fabric8-tenant/tenant"
-	"github.com/fabric8-services/fabric8-wit/log"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -22,8 +23,8 @@ const (
 	varKeycloakURL           = "KEYCLOAK_URL"
 )
 
-func RawInitTenant(ctx context.Context, config Config, callback Callback, username, usertoken string, templateVars map[string]string) error {
-	templs, err := LoadProcessedTemplates(ctx, config, username, templateVars)
+func RawInitTenant(ctx context.Context, config Config, callback Callback, openshiftUsername, usertoken string, templateVars map[string]string) error {
+	templs, err := LoadProcessedTemplates(ctx, config, openshiftUsername, templateVars)
 	if err != nil {
 		return err
 	}
@@ -36,31 +37,29 @@ func RawInitTenant(ctx context.Context, config Config, callback Callback, userna
 	userOpts := ApplyOptions{Config: config.WithToken(usertoken), Callback: callback}
 	var wg sync.WaitGroup
 	wg.Add(len(mapped))
+	username := CreateName(openshiftUsername)
 	for key, val := range mapped {
-		namespaceType := tenant.GetNamespaceType(key)
+		namespaceType := tenant.GetNamespaceType(key, username)
 		if namespaceType == tenant.TypeUser {
 			go func(namespace string, objects []map[interface{}]interface{}, opts, userOpts ApplyOptions) {
 				defer wg.Done()
 				err := ApplyProcessed(Filter(objects, IsOfKind(ValKindProjectRequest, ValKindNamespace)), userOpts)
 				if err != nil {
-					log.Error(ctx, map[string]interface{}{
+					sentry.LogError(ctx, map[string]interface{}{
 						"namespace": namespace,
-						"err":       err,
-					}, "error init user project, ProjectRequest")
+					}, err, "error init user project, ProjectRequest")
 				}
 				err = ApplyProcessed(Filter(objects, IsOfKind(ValKindRoleBindingRestriction)), opts)
 				if err != nil {
-					log.Error(ctx, map[string]interface{}{
+					sentry.LogError(ctx, map[string]interface{}{
 						"namespace": namespace,
-						"err":       err,
-					}, "error init user project, RoleBindingRestrictions")
+					}, err, "error init user project, RoleBindingRestrictions")
 				}
 				err = ApplyProcessed(Filter(objects, IsNotOfKind(ValKindProjectRequest, ValKindNamespace, ValKindRoleBindingRestriction)), userOpts)
 				if err != nil {
-					log.Error(ctx, map[string]interface{}{
+					sentry.LogError(ctx, map[string]interface{}{
 						"namespace": namespace,
-						"err":       err,
-					}, "error init user project, Other")
+					}, err, "error init user project, Other")
 				}
 				_, err = apply(
 					CreateAdminRoleBinding(namespace),
@@ -79,10 +78,9 @@ func RawInitTenant(ctx context.Context, config Config, callback Callback, userna
 					),
 				)
 				if err != nil {
-					log.Error(ctx, map[string]interface{}{
+					sentry.LogError(ctx, map[string]interface{}{
 						"namespace": namespace,
-						"err":       err,
-					}, "error unable to delete Admin role from project")
+					}, err, "error unable to delete Admin role from project")
 				}
 			}(key, val, masterOpts, userOpts)
 		} else {
@@ -90,10 +88,9 @@ func RawInitTenant(ctx context.Context, config Config, callback Callback, userna
 				defer wg.Done()
 				err := ApplyProcessed(objects, opts)
 				if err != nil {
-					log.Error(ctx, map[string]interface{}{
+					sentry.LogError(ctx, map[string]interface{}{
 						"namespace": namespace,
-						"err":       err,
-					}, "error dsaas project")
+					}, err, "error dsaas project")
 				}
 			}(key, val, masterOpts)
 		}
@@ -130,11 +127,10 @@ func RawUpdateTenant(ctx context.Context, config Config, callback Callback, user
 				opts.WithNamespace(namespace),
 			)
 			if err != nil {
-				log.Error(ctx, map[string]interface{}{
+				sentry.LogError(ctx, map[string]interface{}{
 					"output":    output,
 					"namespace": namespace,
-					"error":     err,
-				}, "failed")
+				}, err, "ns update failed")
 				return
 			}
 			log.Info(ctx, map[string]interface{}{
