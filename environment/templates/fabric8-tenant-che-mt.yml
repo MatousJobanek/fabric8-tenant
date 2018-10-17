@@ -6,6 +6,7 @@ metadata:
     app: fabric8-tenant-che-mt
     provider: fabric8
     version: ${COMMIT}
+    version-quotas: ${COMMIT_QUOTAS}
   name: fabric8-tenant-che-mt
 objects:
 - apiVersion: v1
