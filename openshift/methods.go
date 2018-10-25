@@ -1,0 +1,112 @@
+package openshift
+
+import (
+	"net/http"
+)
+
+type MethodDefinition struct {
+	action            string
+	beforeDoCallbacks []BeforeDoCallback
+	afterDoCallbacks  []AfterDoCallback
+	requestCreator    RequestCreator
+}
+
+func NewMethodDefinition(action string, beforeCallbacks []BeforeDoCallback, afterCallbacks []AfterDoCallback, requestCreator RequestCreator) *MethodDefinition {
+	return &MethodDefinition{
+		action:            action,
+		beforeDoCallbacks: beforeCallbacks,
+		afterDoCallbacks:  afterCallbacks,
+		requestCreator:    requestCreator,
+	}
+}
+
+type methodDefCreator func(endpoint string) *MethodDefinition
+type RequestCreatorModifier func(requestCreator RequestCreator) RequestCreator
+
+func (creator methodDefCreator) WithModifier(requestCreatorModifier RequestCreatorModifier) methodDefCreator {
+	return func(urlTemplate string) *MethodDefinition {
+		methodDefinition := creator(urlTemplate)
+		methodDefinition.requestCreator = requestCreatorModifier(methodDefinition.requestCreator)
+		return methodDefinition
+	}
+}
+
+func Skip(requestCreator RequestCreator) RequestCreator {
+	requestCreator.skip = true
+	return requestCreator
+}
+
+func NeedMasterToken(requestCreator RequestCreator) RequestCreator {
+	requestCreator.needMasterToken = true
+	return requestCreator
+}
+
+func POST(afterCallbacks ...AfterDoCallback) methodDefCreator {
+	return func(urlTemplate string) *MethodDefinition {
+		return NewMethodDefinition(
+			http.MethodPost,
+			[]BeforeDoCallback{},
+			append(afterCallbacks), //append(afterCallbacks, GetObject),
+			RequestCreator{
+				creator: func(urlCreator urlCreator, body []byte) (*http.Request, error) {
+					return newDefaultRequest(http.MethodPost, urlCreator(urlTemplate), body)
+				}})
+	}
+}
+
+func PUT(afterCallbacks ...AfterDoCallback) methodDefCreator {
+	return func(urlTemplate string) *MethodDefinition {
+		return NewMethodDefinition(
+			http.MethodPut,
+			[]BeforeDoCallback{},
+			afterCallbacks,
+			RequestCreator{
+				creator: func(urlCreator urlCreator, body []byte) (*http.Request, error) {
+					return newDefaultRequest(http.MethodPut, urlCreator(urlTemplate), body)
+				}})
+	}
+}
+func PATCH(afterCallbacks ...AfterDoCallback) methodDefCreator {
+	return func(urlTemplate string) *MethodDefinition {
+		return NewMethodDefinition(
+			http.MethodPatch,
+			[]BeforeDoCallback{GetObjectAndMerge},
+			append(afterCallbacks), //append(afterCallbacks, GetObject),
+			RequestCreator{
+				creator: func(urlCreator urlCreator, body []byte) (*http.Request, error) {
+					req, err := newDefaultRequest(http.MethodPatch, urlCreator(urlTemplate), body)
+					if err != nil {
+						return nil, err
+					}
+					req.Header.Set("Content-Type", "application/strategic-merge-patch+json")
+					return req, err
+				}})
+	}
+}
+func GET(afterCallbacks ...AfterDoCallback) methodDefCreator {
+	return func(urlTemplate string) *MethodDefinition {
+		return NewMethodDefinition(
+			http.MethodGet,
+			[]BeforeDoCallback{},
+			afterCallbacks,
+			RequestCreator{
+				creator: func(urlCreator urlCreator, body []byte) (*http.Request, error) {
+					return newDefaultRequest(http.MethodGet, urlCreator(urlTemplate), body)
+				}})
+	}
+}
+
+// todo should probable Delete only project for total cleanup and resources for partly-cleanup
+func DELETE(afterCallbacks ...AfterDoCallback) methodDefCreator {
+	return func(urlTemplate string) *MethodDefinition {
+		return NewMethodDefinition(
+			http.MethodDelete,
+			[]BeforeDoCallback{},
+			append(afterCallbacks), // todo check when response is 404
+			RequestCreator{
+				creator: func(urlCreator urlCreator, body []byte) (*http.Request, error) {
+					body = []byte(deleteOptions)
+					return newDefaultRequest(http.MethodDelete, urlCreator(urlTemplate), body)
+				}})
+	}
+}
