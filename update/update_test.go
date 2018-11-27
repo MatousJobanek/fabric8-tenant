@@ -268,8 +268,8 @@ func updateVersionsTo(repo update.Repository, version string) error {
 	return repo.SaveTenantsUpdate(tenantsUpdate)
 }
 
-func (s *TenantsUpdaterTestSuite) tx(t *testing.T, do func(repo update.Repository) error) {
-	tx := s.DB.Begin()
+func tx(t *testing.T, DB *gorm.DB, do func(repo update.Repository) error) {
+	tx := DB.Begin()
 	require.NoError(t, tx.Error)
 	repo := update.NewRepository(tx)
 	if err := do(repo); err != nil {
@@ -277,6 +277,10 @@ func (s *TenantsUpdaterTestSuite) tx(t *testing.T, do func(repo update.Repositor
 		assert.NoError(t, err)
 	}
 	require.NoError(t, tx.Commit().Error)
+}
+
+func (s *TenantsUpdaterTestSuite) tx(t *testing.T, do func(repo update.Repository) error) {
+	tx(t, s.DB, do)
 }
 
 func (s *TenantsUpdaterTestSuite) assertStatusAndAllVersionAreUpToDate(t *testing.T, st update.Status) {
@@ -296,7 +300,6 @@ func (s *TenantsUpdaterTestSuite) newTenantsUpdater(updateExecutor controller.Up
 	reset := test.SetEnvironments(
 		test.Env("F8_AUTH_TOKEN_KEY", "foo"),
 		test.Env("F8_AUTOMATED_UPDATE_RETRY_SLEEP", timeout.String()))
-	authService, _, cleanup := testdoubles.NewAuthServiceWithRecorder(s.T(), "", "http://authservice")
 
 	saToken, err := test.NewToken(
 		map[string]interface{}{
@@ -305,7 +308,7 @@ func (s *TenantsUpdaterTestSuite) newTenantsUpdater(updateExecutor controller.Up
 		"../test/private_key.pem",
 	)
 	require.NoError(s.T(), err)
-	authService.SaToken = saToken.Raw
+	authService, _, cleanup := testdoubles.NewAuthServiceWithRecorder(s.T(), "", "http://authservice", saToken.Raw)
 
 	clusterService := cluster.NewClusterService(time.Hour, authService)
 	err = clusterService.Start()
@@ -320,10 +323,11 @@ func (s *TenantsUpdaterTestSuite) newTenantsUpdater(updateExecutor controller.Up
 }
 
 type DummyUpdateExecutor struct {
-	numberOfCalls *uint64
-	timeToSleep   time.Duration
-	shouldFail    bool
-	wg            *sync.WaitGroup
+	numberOfCalls             *uint64
+	timeToSleep               time.Duration
+	shouldFail                bool
+	wg                        *sync.WaitGroup
+	shouldCallOriginalUpdater bool
 }
 
 func Uint64(v uint64) *uint64 {
@@ -336,6 +340,9 @@ func (e *DummyUpdateExecutor) Update(ctx context.Context, tenantService tenant.S
 	time.Sleep(e.timeToSleep)
 	if e.wg != nil {
 		e.wg.Wait()
+	}
+	if e.shouldCallOriginalUpdater {
+		return controller.OSUpdater{}.Update(ctx, tenantService, openshiftConfig, t, envTypes)
 	}
 	if e.shouldFail {
 		return testdoubles.GetMappedVersions(envTypes...), fmt.Errorf("failing")

@@ -16,7 +16,7 @@ import (
 
 type followUpFunc func() error
 
-func NewTenantsUpdater(db *gorm.DB, config *configuration.Data, authService *auth.Service, clusterService cluster.Service, updateExecutor controller.UpdateExecutor) *TenantsUpdater {
+func NewTenantsUpdater(db *gorm.DB, config *configuration.Data, authService auth.Service, clusterService cluster.Service, updateExecutor controller.UpdateExecutor) *TenantsUpdater {
 	return &TenantsUpdater{
 		db:             db,
 		config:         config,
@@ -29,7 +29,7 @@ func NewTenantsUpdater(db *gorm.DB, config *configuration.Data, authService *aut
 type TenantsUpdater struct {
 	db             *gorm.DB
 	config         *configuration.Data
-	authService    *auth.Service
+	authService    auth.Service
 	clusterService cluster.Service
 	updateExecutor controller.UpdateExecutor
 }

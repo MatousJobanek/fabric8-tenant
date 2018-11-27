@@ -24,7 +24,7 @@ type TenantControllerMinishiftTestSuite struct {
 	minishift.TestSuite
 }
 
-func TestTenantControllerWithMinishift(t *testing.T) {
+func TestTenantControllerWithMinisshift(t *testing.T) {
 	suite.Run(t, &TenantControllerMinishiftTestSuite{
 		TestSuite: minishift.TestSuite{DBTestSuite: gormsupport.NewDBTestSuite("../config.yaml")}})
 }

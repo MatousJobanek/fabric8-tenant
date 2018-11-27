@@ -109,6 +109,7 @@ func executeProccessedNamespaceCMD(t string, opts ApplyOptions) (string, error) 
 	}
 	serverFlag := "--server=" + opts.MasterURL + hostVerify
 	cmdArgs := []string{"-c", "oc process -f - " + serverFlag + " --token=" + opts.Token + " --namespace=" + opts.Namespace + " | oc apply -f -  --overwrite=true --force=true --server=" + opts.MasterURL + hostVerify + " --token=" + opts.Token + " --namespace=" + opts.Namespace}
+	fmt.Println(cmdArgs)
 	return executeCMD(&t, cmdArgs)
 }
 
