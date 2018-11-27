@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 	"sync"
