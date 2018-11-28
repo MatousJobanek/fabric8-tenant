@@ -7,7 +7,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/fabric8-services/fabric8-common/log"
 	"github.com/fabric8-services/fabric8-tenant/environment/generated"
-	"github.com/fabric8-services/fabric8-tenant/toggles"
 	"github.com/fabric8-services/fabric8-tenant/utils"
 	goajwt "github.com/goadesign/goa/middleware/security/jwt"
 	"path"
@@ -103,16 +102,16 @@ func (s *Service) GetEnvData(ctx context.Context, envType string) (*EnvData, err
 	var templates []*Template
 	var mappedTemplates = RetrieveMappedTemplates()
 	if envType == "che" {
-		if ctx != nil && !toggles.IsEnabled(ctx, "deploy.che-multi-tenant", false) {
-			templates = mappedTemplates[envType]
-		} else {
+		//if ctx != nil && !toggles.IsEnabled(ctx, "deploy.che-multi-tenant", false) {
+		//	templates = mappedTemplates[envType]
+		//} else {
 			cheMtParams, err := getCheMtParams(ctx)
 			if err != nil {
 				return nil, err
 			}
 			templates = mappedTemplates["che-mt"]
 			templates[0].DefaultParams = merge(templates[0].DefaultParams, cheMtParams, true)
-		}
+		//}
 	} else {
 		templates = mappedTemplates[envType]
 	}

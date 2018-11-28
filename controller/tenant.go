@@ -225,6 +225,7 @@ func updateNamespaceEntities(ctx context.Context, tenantService tenant.Service, 
 			}
 			ns.UpdatedBy = Commit
 			err := tenantService.SaveNamespace(ns)
+			fmt.Println("saved", ns.Name, ns.Version)
 			if err != nil {
 				log.Error(ctx, map[string]interface{}{
 					"err":    err,
@@ -346,8 +347,8 @@ func InitTenant(ctx context.Context, masterURL string, service tenant.Service, c
 			"namespace":   env.GetNamespace(request),
 			"name":        env.GetName(request),
 			"kind":        env.GetKind(request),
-			"request":     yamlString(request),
-			"response":    yamlString(response),
+			//"request":     yamlString(request),
+			//"response":    yamlString(response),
 		}, "resource requested")
 		if statusCode == http.StatusConflict {
 			if env.GetKind(request) == env.ValKindNamespace {

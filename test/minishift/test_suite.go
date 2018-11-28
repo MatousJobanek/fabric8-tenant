@@ -26,8 +26,8 @@ import (
 // TestSuite is a base for tests using Minishift and gorm db
 type TestSuite struct {
 	gormsupport.DBTestSuite
-	ClusterService  *stub.ClusterService
-	AuthService     *stub.AuthService
+	clusterService  *stub.ClusterService
+	authService     *stub.AuthService
 	Config          *configuration.Data
 	toReset         func()
 	minishiftConfig *Data
@@ -49,12 +49,12 @@ func (s *TestSuite) SetupTest() {
 
 	log.InitializeLogger(s.Config.IsLogJSON(), s.Config.GetLogLevel())
 
-	s.ClusterService = &stub.ClusterService{
+	s.clusterService = &stub.ClusterService{
 		APIURL: s.minishiftConfig.GetMinishiftURL(),
 		User:   s.minishiftConfig.GetMinishiftAdminName(),
 		Token:  s.minishiftConfig.GetMinishiftAdminToken(),
 	}
-	s.AuthService = &stub.AuthService{
+	s.authService = &stub.AuthService{
 		OpenShiftUsername:  s.minishiftConfig.GetMinishiftUserName(),
 		OpenShiftUserToken: s.minishiftConfig.GetMinishiftUserToken(),
 	}
@@ -66,12 +66,12 @@ func (s *TestSuite) TearDownTest() {
 }
 
 func (s *TestSuite) GetClusterService() cluster.Service {
-	return s.ClusterService
+	return s.clusterService
 }
 
 func (s *TestSuite) GetAuthService(tenantID uuid.UUID) auth.Service {
-	s.AuthService.TenantID = tenantID
-	return s.AuthService
+	s.authService.TenantID = tenantID
+	return s.authService
 }
 
 func (s *TestSuite) GetConfig() *configuration.Data {
@@ -82,7 +82,7 @@ func prepareConfig(t *testing.T) (*configuration.Data, func()) {
 	resetVars := test.SetEnvironments(
 		test.Env("F8_AUTH_TOKEN_KEY", "foo"),
 		test.Env("F8_API_SERVER_USE_TLS", "false"),
-		test.Env("F8_LOG_LEVEL", "error"),
+		//test.Env("F8_LOG_LEVEL", "error"),
 		test.Env("F8_KEYCLOAK_URL", "http://keycloak.url.com"))
 	config, resetConf := test.LoadTestConfig(t)
 	reset := func() {
@@ -92,7 +92,7 @@ func prepareConfig(t *testing.T) (*configuration.Data, func()) {
 	return config, reset
 }
 
-func VerifyObjectsPresence(t *testing.T, mappedObjects map[string]environment.Objects, options openshift.ApplyOptions, version string) {
+func VerifyObjectsPresence(t *testing.T, mappedObjects map[string]environment.Objects, options openshift.ApplyOptions, version string, required bool) {
 	size := 0
 	for _, objects := range mappedObjects {
 		size += len(objects)
@@ -100,9 +100,12 @@ func VerifyObjectsPresence(t *testing.T, mappedObjects map[string]environment.Ob
 	errorChan := make(chan error, size)
 	defer func() {
 		close(errorChan)
+		errWasFound := false
 		for err := range errorChan {
 			assert.NoError(t, err)
+			errWasFound = errWasFound || err != nil
 		}
+		require.False(t, errWasFound)
 	}()
 
 	var wg sync.WaitGroup

@@ -315,7 +315,7 @@ func (s *TenantsUpdaterTestSuite) newTenantsUpdater(updateExecutor controller.Up
 
 	require.NoError(s.T(), err)
 	config, reset := test.LoadTestConfig(s.T())
-	return update.NewTenantsUpdater(s.DB, config, authService, clusterService, updateExecutor), func() {
+	return update.NewTenantsUpdater(s.DB, config, clusterService, updateExecutor), func() {
 		cleanup()
 		reset()
 		clusterService.Stop()
