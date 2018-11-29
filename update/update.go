@@ -11,7 +11,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"sync"
 	"time"
-	"fmt"
 )
 
 type followUpFunc func() error
@@ -192,7 +191,6 @@ func (u *TenantsUpdater) updateTenants(tenants []*tenant.Tenant, tenantRepo tena
 
 	for _, tnnt := range tenants {
 		wg.Add(1)
-		fmt.Printf("to update %+v \n", *tnnt)
 
 		go updateTenant(&wg, tnnt, tenantRepo, envTypes, *u)
 

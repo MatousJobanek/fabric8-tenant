@@ -26,16 +26,12 @@ type AutomatedUpdateMinishiftTestSuite struct {
 	minishift.TestSuite
 }
 
+var numberOfTenants = 11
+
 func TestAutomatedUpdateWithMinishift(t *testing.T) {
-	//os.Setenv("F8_RESOURCE_DATABASE", "1")
-	//os.Setenv("F8_POSTGRES_DATABASE", "postgres")
-	//os.Setenv("F8_MINISHIFT", "1")
-	//os.Setenv("F8_MINISHIFT_USER_NAME", "developer18.11.28.25")
-	//os.Setenv("F8_MINISHIFT_USER_TOKEN", "fgAM61Rhv6KuVD7QOSA-aKcfmJmSF5eFqtX5_vW0H38")
-	//os.Setenv("F8_MINISHIFT_ADMIN_NAME", "admin")
-	//os.Setenv("F8_MINISHIFT_ADMIN_TOKEN", "EV9D9AYK4ppmoDxw4VMmZ9XgBHkhoz7Fas48sexf3kA")
-	//os.Setenv("F8_MINISHIFT_URL", "https://192.168.42.231:8443")
-	toReset := test.SetEnvironments(test.Env("F8_AUTOMATED_UPDATE_RETRY_SLEEP", (5 * time.Second).String()))
+	toReset := test.SetEnvironments(
+		test.Env("F8_AUTOMATED_UPDATE_RETRY_SLEEP", (time.Duration(numberOfTenants) * 5 * time.Second).String()),
+		test.Env("DISABLE_OSO_QUOTAS", "true"))
 	defer toReset()
 
 	suite.Run(t, &AutomatedUpdateMinishiftTestSuite{
@@ -49,7 +45,7 @@ func (s *AutomatedUpdateMinishiftTestSuite) TestAutomaticUpdateOfTenantNamespace
 	var tenantIDs []uuid.UUID
 	clusterService := s.GetClusterService()
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < numberOfTenants; i++ {
 		id := uuid.NewV4()
 		tenantIDs = append(tenantIDs, id)
 		ctrl := controller.NewTenantController(svc, tenant.NewDBService(s.DB), clusterService, s.GetAuthService(id), s.GetConfig())
@@ -58,7 +54,7 @@ func (s *AutomatedUpdateMinishiftTestSuite) TestAutomaticUpdateOfTenantNamespace
 
 	for _, tenantID := range tenantIDs {
 		repo := tenant.NewDBService(s.DB)
-		err := test.WaitWithTimeout(30 * time.Second).Until(func() error {
+		err := test.WaitWithTimeout(time.Duration(numberOfTenants) * 3 * time.Second).Until(func() error {
 			namespaces, err := repo.GetNamespaces(tenantID)
 			if err != nil {
 				return err
@@ -103,14 +99,11 @@ func (s *AutomatedUpdateMinishiftTestSuite) TestAutomaticUpdateOfTenantNamespace
 			update.NewTenantsUpdater(s.DB, s.Config, clusterService, updateExecutor).UpdateAllTenants()
 		}(&updateExec)
 	}
-	fmt.Println("making done")
 	goroutineCanContinue.Done()
-	fmt.Println("waiting for to finish")
 	goroutineFinished.Wait()
-	fmt.Println("finished")
 	// then
+	assertStatusAndAllVersionAreUpToDate(s.T(), s.DB, update.Finished)
 	assert.Equal(s.T(), 5*len(tenantIDs), int(*updateExec.numberOfCalls))
-	fmt.Println("going to verify")
 	s.verifyAreUpdated(tenantIDs, before)
 }
 
@@ -132,17 +125,14 @@ func (s *AutomatedUpdateMinishiftTestSuite) verifyAreUpdated(tenantIDs []uuid.UU
 				assert.NotContains(t, ns.Version, "1abcd")
 				assert.Equal(t, "ready", ns.State)
 			}
-			fmt.Println("namespaces done", tenantID)
 			mappedObjects, masterOpts := s.GetMappedTemplateObjects(tnnt.NsBaseName)
 			minishift.VerifyObjectsPresence(t, mappedObjects, masterOpts, "2abcd", false)
-			fmt.Println("objects done", tenantID)
 		}(s.T(), tenantID)
 	}
 	wg.Wait()
 }
 
 func (s *AutomatedUpdateMinishiftTestSuite) clean(toCleanup []uuid.UUID) {
-	fmt.Println("going to cleanup")
 	svc := goa.New("Tenants-service")
 	var wg sync.WaitGroup
 	for _, tenantID := range toCleanup {
@@ -151,7 +141,6 @@ func (s *AutomatedUpdateMinishiftTestSuite) clean(toCleanup []uuid.UUID) {
 			defer wg.Done()
 			ctrl := controller.NewTenantController(svc, tenant.NewDBService(s.DB), s.GetClusterService(), s.GetAuthService(tenantID), s.GetConfig())
 			goatest.CleanTenantNoContent(s.T(), createUserContext(s.T(), tenantID.String()), svc, ctrl, true)
-			fmt.Println("cleaned", tenantID)
 		}(tenantID)
 	}
 	wg.Wait()

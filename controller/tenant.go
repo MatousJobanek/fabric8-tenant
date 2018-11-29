@@ -225,7 +225,6 @@ func updateNamespaceEntities(ctx context.Context, tenantService tenant.Service, 
 			}
 			ns.UpdatedBy = Commit
 			err := tenantService.SaveNamespace(ns)
-			fmt.Println("saved", ns.Name, ns.Version)
 			if err != nil {
 				log.Error(ctx, map[string]interface{}{
 					"err":    err,
@@ -339,7 +338,7 @@ func (c *TenantController) Show(ctx *app.ShowTenantContext) error {
 func InitTenant(ctx context.Context, masterURL string, service tenant.Service, currentTenant *tenant.Tenant) openshift.Callback {
 	var maxResourceQuotaStatusCheck int32 = 50 // technically a global retry count across all ResourceQuota on all Tenant Namespaces
 	var currentResourceQuotaStatusCheck int32  // default is 0
-	return func(statusCode int, method string, request, response map[interface{}]interface{}, templatesVersion string) (string, map[interface{}]interface{}) {
+	return func(statusCode int, method string, request, response map[interface{}]interface{}, versionMapping map[string]string) (string, map[interface{}]interface{}) {
 		log.Info(ctx, map[string]interface{}{
 			"status":      statusCode,
 			"method":      method,
@@ -347,8 +346,8 @@ func InitTenant(ctx context.Context, masterURL string, service tenant.Service, c
 			"namespace":   env.GetNamespace(request),
 			"name":        env.GetName(request),
 			"kind":        env.GetKind(request),
-			//"request":     yamlString(request),
-			//"response":    yamlString(response),
+			"request":     yamlString(request),
+			"response":    yamlString(response),
 		}, "resource requested")
 		if statusCode == http.StatusConflict {
 			if env.GetKind(request) == env.ValKindNamespace {
@@ -367,12 +366,14 @@ func InitTenant(ctx context.Context, masterURL string, service tenant.Service, c
 		} else if statusCode == http.StatusCreated {
 			if env.GetKind(request) == env.ValKindProjectRequest {
 				name := env.GetName(request)
+				envType := tenant.GetNamespaceType(name, currentTenant.NsBaseName)
+				templatesVersion := versionMapping[string(envType)]
 				service.SaveNamespace(&tenant.Namespace{
 					TenantID:  currentTenant.ID,
 					Name:      name,
 					State:     "created",
 					Version:   templatesVersion,
-					Type:      tenant.GetNamespaceType(name, currentTenant.NsBaseName),
+					Type:      envType,
 					MasterURL: masterURL,
 					UpdatedBy: Commit,
 				})
@@ -383,12 +384,14 @@ func InitTenant(ctx context.Context, masterURL string, service tenant.Service, c
 
 			} else if env.GetKind(request) == env.ValKindNamespace {
 				name := env.GetName(request)
+				envType := tenant.GetNamespaceType(name, currentTenant.NsBaseName)
+				templatesVersion := versionMapping[string(envType)]
 				service.SaveNamespace(&tenant.Namespace{
 					TenantID:  currentTenant.ID,
 					Name:      name,
 					State:     "created",
 					Version:   templatesVersion,
-					Type:      tenant.GetNamespaceType(name, currentTenant.NsBaseName),
+					Type:      envType,
 					MasterURL: masterURL,
 					UpdatedBy: Commit,
 				})

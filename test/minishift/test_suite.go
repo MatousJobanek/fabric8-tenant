@@ -82,7 +82,7 @@ func prepareConfig(t *testing.T) (*configuration.Data, func()) {
 	resetVars := test.SetEnvironments(
 		test.Env("F8_AUTH_TOKEN_KEY", "foo"),
 		test.Env("F8_API_SERVER_USE_TLS", "false"),
-		//test.Env("F8_LOG_LEVEL", "error"),
+		test.Env("F8_LOG_LEVEL", "error"),
 		test.Env("F8_KEYCLOAK_URL", "http://keycloak.url.com"))
 	config, resetConf := test.LoadTestConfig(t)
 	reset := func() {
@@ -105,7 +105,9 @@ func VerifyObjectsPresence(t *testing.T, mappedObjects map[string]environment.Ob
 			assert.NoError(t, err)
 			errWasFound = errWasFound || err != nil
 		}
-		require.False(t, errWasFound)
+		if required {
+			require.False(t, errWasFound)
+		}
 	}()
 
 	var wg sync.WaitGroup

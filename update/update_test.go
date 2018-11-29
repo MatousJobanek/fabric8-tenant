@@ -283,10 +283,10 @@ func (s *TenantsUpdaterTestSuite) tx(t *testing.T, do func(repo update.Repositor
 	tx(t, s.DB, do)
 }
 
-func (s *TenantsUpdaterTestSuite) assertStatusAndAllVersionAreUpToDate(t *testing.T, st update.Status) {
+func assertStatusAndAllVersionAreUpToDate(t *testing.T, db *gorm.DB, st update.Status) {
 	var err error
 	var tenantsUpdate *update.TenantsUpdate
-	err = update.Transaction(s.DB, func(tx *gorm.DB) error {
+	err = update.Transaction(db, func(tx *gorm.DB) error {
 		tenantsUpdate, err = update.NewRepository(tx).GetTenantsUpdate()
 		return err
 	})
@@ -294,6 +294,10 @@ func (s *TenantsUpdaterTestSuite) assertStatusAndAllVersionAreUpToDate(t *testin
 	for _, versionManager := range update.RetrieveVersionManagers() {
 		assert.True(t, versionManager.IsVersionUpToDate(tenantsUpdate))
 	}
+}
+
+func (s *TenantsUpdaterTestSuite) assertStatusAndAllVersionAreUpToDate(t *testing.T, st update.Status) {
+	assertStatusAndAllVersionAreUpToDate(t, s.DB, st)
 }
 
 func (s *TenantsUpdaterTestSuite) newTenantsUpdater(updateExecutor controller.UpdateExecutor, timeout time.Duration) (*update.TenantsUpdater, func()) {
